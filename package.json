@@ -16,7 +16,9 @@
   "author": "Alex Ladyga",
   "license": "MIT",
   "dependencies": {
-    "debug": "^1.0.4"
+    "debug": "^1.0.4",
+    "mongodb": "^1.4.39",
+    "mongoskin": "^1.4.13"
   },
   "devDependencies": {
     "lodash": "^3.10.0"
