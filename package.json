@@ -1,0 +1,24 @@
+{
+  "name": "intime",
+  "version": "0.0.1",
+  "description": "Lightweight MongoDB based Node.js job scheduler",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "job",
+    "jobs",
+    "scheduler",
+    "cron",
+    "task"
+  ],
+  "author": "Alex Ladyga",
+  "license": "MIT",
+  "dependencies": {
+    "debug": "^1.0.4"
+  },
+  "devDependencies": {
+    "lodash": "^3.10.0"
+  }
+}
