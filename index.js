@@ -124,7 +124,7 @@ jp.every = function(time, jobName, data, done) {
 			nextRunAt: nextRun
 		}, function(err){
 			if ( err ) { self.emit('error', err); return done(err); }
-			done(null, { intervalMS: parsedInterval, nextRun: nextRun });
+			done(null, { intervalMs: parsedInterval, nextRun: nextRun });
 		});
 	});
 };
