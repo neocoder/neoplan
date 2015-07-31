@@ -116,7 +116,7 @@ jp.every = function(time, jobName, data, opts, done) {
 
 		var parsedInterval = humanInterval(time);
 
-		var nextRun = opt.runNow ? new Date() : new Date(Date.now() + parsedInterval);
+		var nextRun = opts.runNow ? new Date() : new Date(Date.now() + parsedInterval);
 
 		debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
 
