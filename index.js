@@ -99,17 +99,24 @@ jp.schedule = function(time, jobName, data, done) {
 	});
 };
 
-jp.every = function(time, jobName, data, done) {
+jp.every = function(time, jobName, data, opts, done) {
 	var self = this;
 	data = data || {};
 	done = done || function(){};
+
+	if ( _.isFunction(opts) ) {
+		done = opts;
+		opts = {
+			runNow: false
+		};
+	}
 
 	self.remove(jobName, data, function(err){
 		if ( err ) { return self.emit('error', err); }
 
 		var parsedInterval = humanInterval(time);
 
-		var nextRun = new Date(Date.now() + parsedInterval);
+		var nextRun = opt.runNow ? new Date() : new Date(Date.now() + parsedInterval);
 
 		debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
 
