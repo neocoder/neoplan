@@ -1,6 +1,5 @@
 var _ = require('lodash'),
-	mongo = require('mongoskin'),
-	toObjectID = mongo.helper.toObjectID,
+	MongoClient = require('mongodb').MongoClient,
 	humanInterval = require('human-interval'),
 	util = require('util'),
 	async = require('async'),
@@ -8,7 +7,9 @@ var _ = require('lodash'),
 	debug = require('debug')('intime');
 
 function Jobs(opts) {
-	var self = this;
+	var that = this;
+
+	that._ready = false;
 
 	EventEmitter.call(this);
 
@@ -24,18 +25,32 @@ function Jobs(opts) {
 		nextScanAt: new Date(Date.now() + 5000) // in 5 seconds
 	}, opts || {});
 
-	this._db = mongo.db(this.options.url, {w: 0});
-
-	this.col = this._db.collection(this.options.collection);
-
 	function scan() {
-		self.options.nextScanAt = new Date( Date.now() + self.options.scanInterval );
+		that.options.nextScanAt = new Date( Date.now() + that.options.scanInterval );
 		setTimeout(function(){
-			self._processJobs(scan);
-		}, self.options.scanInterval);		
+			that._processJobs(scan);
+		}, that.options.scanInterval);		
 	}
 
-	scan();
+	this.ready = function(cb) {
+		if ( this._ready ) {
+			cb();
+		} else {
+			this.on('ready', cb);
+		}
+	};
+
+	debug('Connecting to '+that.options.url);
+	MongoClient.connect(that.options.url, function(err, db){
+		if ( err ) { throw err; /*return that.emit('error', err);*/ }
+
+		that._db = db;
+		that.col = db.collection(that.options.collection);
+		debug('Selecting collection: '+that.options.collection);
+		that._ready = true;
+		that.emit('ready');
+		scan();
+	});
 }
 
 util.inherits(Jobs, EventEmitter);
@@ -45,64 +60,74 @@ var jp = Jobs.prototype;
 // for debug only
 
 jp._dropCollection = function(done) {
-	this.col.drop(function(err){
-		// we ignore the "collection does not exists" error
-		if ( done ) {
-			done();	
-		}		
+	var that = this;
+	this.ready(function(){
+		that.col.drop(function(err){
+			// we ignore the "collection does not exists" error
+			if ( done ) {
+				done();	
+			}		
+		});
 	});
 };
 
 jp.defineJob = function(jobName, processor) {
-	if ( this.jobProcessors[jobName] ) {
-		this.emit('error', new Error('Job processor with the name '+jobName+' already exists.'));
-	} else {
-		this.jobProcessors[jobName] = processor;	
-	}	
+	var that = this;
+
+	this.ready(function(){
+		if ( that.jobProcessors[jobName] ) {
+			that.emit('error', new Error('Job processor with the name '+jobName+' already exists.'));
+		} else {
+			that.jobProcessors[jobName] = processor;	
+		}	
+	});
 };
  
 jp.schedule = function(time, jobName, data, done) {
-	var self = this;
+	var that = this;
 	data = data || {};
 	done = done || function(){};
 
-	self.remove(jobName, data, function(err){
-		if ( err ) { return self.emit('error', err); }
+	that.ready(function(){
+		that.remove(jobName, data, function(err){
+			if ( err ) { return that.emit('error', err); }
 
-		var nextRun;
+			var nextRun;
 
-		if ( _.isString(time) ) {
-			parsedInterval = humanInterval(time);	
-			nextRun = new Date(Date.now() + parsedInterval);
-		} else if ( _.isNumber(time) ) {
-			nextRun = new Date(Date.now() + time);
-		} else if ( _.isDate(time) ) {
-			// TODO: add 
-			nextRun = time;
-		} else {
-			throw new Error('[Jobs.schedule] wrong time argument %s', time);
-		}
+			if ( _.isString(time) ) {
+				parsedInterval = humanInterval(time);	
+				nextRun = new Date(Date.now() + parsedInterval);
+			} else if ( _.isNumber(time) ) {
+				nextRun = new Date(Date.now() + time);
+			} else if ( _.isDate(time) ) {
+				// TODO: add 
+				nextRun = time;
+			} else {
+				throw new Error('[Jobs.schedule] wrong time argument %s', time);
+			}
 
-		debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
+			debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
 
-		self.col.insert({
-			name: jobName,
-			data: data,
+			that.col.insert({
+				name: jobName,
+				data: data,
 
-			status: 'scheduled', // 'pending', 'processing', 'done', 'scheduled'
+				status: 'scheduled', // 'pending', 'processing', 'done', 'scheduled'
 
-			nextRunAt: nextRun
-		}, function(err){
-			if ( err ) { return self.emit('error', err); }
+				nextRunAt: nextRun
+			}, function(err){
+				if ( err ) { return that.emit('error', err); }
+			});
+
 		});
-
 	});
 };
 
 jp.every = function(time, jobName, data, opts, done) {
-	var self = this;
+	var that = this;
 	data = data || {};
 	done = done || function(){};
+	opts = opts || {};
 
 	if ( _.isFunction(opts) ) {
 		done = opts;
@@ -111,153 +136,171 @@ jp.every = function(time, jobName, data, opts, done) {
 		};
 	}
 
-	self.remove(jobName, data, function(err){
-		if ( err ) { return self.emit('error', err); }
+	that.ready(function(){
+		that.remove(jobName, data, function(err){
+			if ( err ) { return that.emit('error', err); }
 
-		var parsedInterval = humanInterval(time);
+			var parsedInterval = humanInterval(time);
 
-		var nextRun = opts.runNow ? new Date() : new Date(Date.now() + parsedInterval);
+			var nextRun = opts.runNow ? new Date() : new Date(Date.now() + parsedInterval);
 
-		debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
+			debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
 
-		self.col.insert({
-			name: jobName,
-			data: data,
+			that.col.insert({
+				name: jobName,
+				data: data,
 
-			intervalStr: time,
-			interval: parsedInterval,
-			status: 'scheduled', // 'pending', 'processing', 'done', 'scheduled'
+				intervalStr: time,
+				interval: parsedInterval,
+				status: 'scheduled', // 'pending', 'processing', 'done', 'scheduled'
 
-			nextRunAt: nextRun
-		}, function(err){
-			if ( err ) { self.emit('error', err); return done(err); }
-			done(null, { intervalMs: parsedInterval, nextRun: nextRun });
+				nextRunAt: nextRun
+			}, function(err){
+				if ( err ) { that.emit('error', err); return done(err); }
+				done(null, { intervalMs: parsedInterval, nextRun: nextRun });
+			});
 		});
 	});
 };
 
 jp.remove = function(jobName, dataMatcher, done) {
+	var that = this;
 	done = done || function(){};
 	dataMatcher = dataMatcher || {};
 
-	this.col.remove({
-		name: jobName,
-		data: dataMatcher
-	}, done);
+	that.ready(function(){
+		that.col.remove({
+			name: jobName,
+			data: dataMatcher
+		}, done);		
+	});
 };
 
 jp.lockAndGetNextJob = function(done) {
-	var self = this;
-	var now = new Date(),
-		lockDeadline = new Date(Date.now().valueOf() - this.options.lockLifetime);
+	var that = this;
 
-	debug('looking for jobs with nextRunAt <= %s, ( %s )', this.options.nextScanAt, this.options.nextScanAt.getTime());
+	that.ready(function(){
+		var now = new Date(),
+			lockDeadline = new Date(Date.now().valueOf() - that.options.lockLifetime);
 
-	var availableProcessors = Object.getOwnPropertyNames(this.jobProcessors);
+		debug('looking for jobs with nextRunAt <= %s, ( %s )', that.options.nextScanAt, that.options.nextScanAt.getTime());
 
-	this.col.findAndModify({
-		nextRunAt: { $lte: this.options.nextScanAt },
+		var availableProcessors = Object.getOwnPropertyNames(that.jobProcessors);
 
-		$or: [
-			{ lockedAt: null },
-			{ lockedAt: { $exists: false } },
-			{ lockedAt: { $lte: lockDeadline } }
-		],
+		that.col.findAndModify({
+			nextRunAt: { $lte: that.options.nextScanAt },
 
-		status: { $ne: 'done' },
+			$or: [
+				{ lockedAt: null },
+				{ lockedAt: { $exists: false } },
+				{ lockedAt: { $lte: lockDeadline } }
+			],
 
-		name: { $in: availableProcessors }
-	},
-	{ /* sorting params */ },
-	{ 
-		$set: {
-			lockedAt: now,
-			workerId: this.options.workerId,
-			status: 'processing'
-		}
-	},
-	{ 'new': true },
-	done);
+			status: { $ne: 'done' },
+
+			name: { $in: availableProcessors }
+		},
+		{ /* sorting params */ },
+		{ 
+			$set: {
+				lockedAt: now,
+				workerId: that.options.workerId,
+				status: 'processing'
+			}
+		},
+		{ 'new': true },
+		function(err, res){
+			if ( err ) { return done(err); }
+			done(null, res.value);
+		});
+	});
 };
 
 jp.lockAndGetNextBatch = function(done) {
-	var self = this,
+	var that = this,
 		batch = [];
 
-	function nextJob() {
-		self.lockAndGetNextJob(function(err, job){
-			if ( err ) { return done(err); }
+	that.ready(function(){
+		function nextJob() {
+			that.lockAndGetNextJob(function(err, job){
+				if ( err ) { return done(err); }
 
-			if ( job ) {
-				batch.push(job);
-			}
-			// if no more jobs or reached concurrecy limit
-			if ( !job || batch.length == self.options.concurrency ) {
-				done(null, batch);
-			} else {
-				nextJob();
-			}
-		});
-	}
+				if ( job ) {
+					batch.push(job);
+				}
 
-	nextJob();
+				// if no more jobs or reached concurrecy limit
+				if ( !job || batch.length == that.options.concurrency ) {
+					done(null, batch);
+				} else {
+					nextJob();
+				}
+			});
+		}
+
+		nextJob();
+	});
 };
 
 jp._processJobs = function(done) {
-	var self = this;
+	var that = this;
 
-	self.lockAndGetNextBatch(function(err, batch){
-		if ( err ) { return done(err); }
+	that.ready(function(){
+		that.lockAndGetNextBatch(function(err, batch){
+			if ( err ) { return done(err); }
 
-		debug('lockAndGetNextBatch %s', batch.length);
+			debug('lockAndGetNextBatch %s', batch.length);
 
-		if (batch && batch.length) {
-			async.each(batch, function(job, next){
+			if (batch && batch.length) {
+				async.each(batch, function(job, next){
 
-				if ( self.jobProcessors[job.name] ) {
-					self.jobProcessors[job.name](job.data, function(err){
-						if ( err ) { return next(err); }
+					if ( that.jobProcessors[job.name] ) {
+						that.jobProcessors[job.name](job.data, function(err){
+							if ( err ) { return next(err); }
 
-						// if recurring job
-						if ( job.interval ) {
-							debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!')
-							self.col.update({
-								_id: job._id
-							}, {
-								$set: {
-									status: 'scheduled',
-									nextRunAt: new Date( Date.now() + job.interval ),
-									lockedAt: null,
-									workerId: null
-								}
-							}, function(err){
-								if ( err ) { return next(err); }
-								next();
-							});
-						} else {
-							self.col.update({ _id: job._id }, { $set: { status: 'done', lockedAt: null } }, function(err){
-								if ( err ) { return next(err); }
-								next();
-							});
-						}
-					});
-				} else {
-					self.emit('error', new Error('Job with the name '+job.name+' does not have a processor.'));
-					next();
-				}
+							// if recurring job
+							if ( job.interval ) {
+								debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
+								that.col.update({
+									_id: job._id
+								}, {
+									$set: {
+										status: 'scheduled',
+										nextRunAt: new Date( Date.now() + job.interval ),
+										lockedAt: null,
+										workerId: null
+									}
+								}, function(err){
+									if ( err ) { return next(err); }
+									next();
+								});
+							} else {
+								that.col.update({ _id: job._id }, { $set: { status: 'done', lockedAt: null } }, function(err){
+									if ( err ) { return next(err); }
+									next();
+								});
+							}
+						});
+					} else {
+						that.emit('error', new Error('Job with the name '+job.name+' does not have a processor.'));
+						next();
+					}
 
-			}, function(err){
-				if ( err ) { return self.emit('error', err); }
-				done(err);
-			});
-		} else {
-			done();
-		}
+				}, function(err){
+					if ( err ) { return that.emit('error', err); }
+					done(err);
+				});
+			} else {
+				done();
+			}
+		});
 	});
 };
 
 jp.close = function() {
-	this._db.close();
+	that.ready(function(){
+		that._db.close();
+	});
 };
 
 module.exports = Jobs;

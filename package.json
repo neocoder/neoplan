@@ -1,6 +1,6 @@
 {
   "name": "intime",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Lightweight MongoDB based Node.js job scheduler",
   "main": "index.js",
   "scripts": {
@@ -20,8 +20,7 @@
     "debug": "^1.0.4",
     "human-interval": "^0.1.4",
     "lodash": "^3.10.0",
-    "mongodb": "^1.4.39",
-    "mongoskin": "^1.4.13"
+    "mongodb": "^2.0.42"
   },
   "devDependencies": {
     "lodash": "^3.10.0"

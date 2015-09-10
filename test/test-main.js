@@ -36,6 +36,8 @@ describe('Testing jobs', function(){
 		return true;
 	});
 
+	
+
 	it('should add a single scheduled job', function(testDone){
 		this.timeout(4000);
 
@@ -61,6 +63,7 @@ describe('Testing jobs', function(){
 
 		return true;
 	});
+
 
 	it('should scheduled 2 jobs', function(testDone){
 		this.timeout(8000);
@@ -103,6 +106,7 @@ describe('Testing jobs', function(){
 
 		return true;
 	});		
+
 
 	it('should add a single job, schedule it 10 times and process in 2 batches', function(testDone){
 		this.timeout(4000);
@@ -148,8 +152,6 @@ describe('Testing jobs', function(){
 
 		return true;
 	});	
-
-	//*/
 
 	it('should add a single recurring job, and remove it after 5 runs', function(testDone){
 		this.timeout(10000);
@@ -230,5 +232,7 @@ describe('Testing jobs', function(){
 
 		return true;
 	});	
+
+	//*/
 
 });
