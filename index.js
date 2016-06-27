@@ -25,13 +25,6 @@ function Jobs(opts) {
 		nextScanAt: new Date(Date.now() + 5000) // in 5 seconds
 	}, opts || {});
 
-	function scan() {
-		that.options.nextScanAt = new Date( Date.now() + that.options.scanInterval );
-		setTimeout(function(){
-			that._processJobs(scan);
-		}, that.options.scanInterval);		
-	}
-
 	this.ready = function(cb) {
 		if ( this._ready ) {
 			cb();
@@ -40,17 +33,7 @@ function Jobs(opts) {
 		}
 	};
 
-	debug('Connecting to '+that.options.url);
-	MongoClient.connect(that.options.url, function(err, db){
-		if ( err ) { throw err; /*return that.emit('error', err);*/ }
-
-		that._db = db;
-		that.col = db.collection(that.options.collection);
-		debug('Selecting collection: '+that.options.collection);
-		that._ready = true;
-		that.emit('ready');
-		scan();
-	});
+	this.connect();
 }
 
 util.inherits(Jobs, EventEmitter);
@@ -65,11 +48,47 @@ jp._dropCollection = function(done) {
 		that.col.drop(function(err){
 			// we ignore the "collection does not exists" error
 			if ( done ) {
-				done();	
-			}		
+				done();
+			}
 		});
 	});
 };
+
+jp._scanForJobs = function(err) {
+	var that = this;
+
+	// if ( err ) {
+	// 	console.log('_scanForJobs error: ', err);
+	// 	if ( err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' ) {
+	// 		console.log('Connection to MongoDB is lost. Reconnecting in 10 sec');
+	// 		setTimeout(function(){
+	// 			that.connect('RECONNECT');
+	// 		}, 10000)
+	// 	}
+	// 	return;
+	// }
+	that.options.nextScanAt = new Date( Date.now() + that.options.scanInterval );
+	setTimeout(function(){
+		that._processJobs(that._scanForJobs.bind(that));
+	}, that.options.scanInterval);
+}
+
+jp.connect = function(reconnect) {
+	var that = this;
+	debug('Connecting to '+that.options.url);
+	MongoClient.connect(that.options.url, function(err, db){
+		if ( err ) { throw err; /*return that.emit('error', err);*/ }
+
+		that._db = db;
+		that.col = db.collection(that.options.collection);
+		debug('Selecting collection: '+that.options.collection);
+		if ( !reconnect ) {
+			that._ready = true;
+			that.emit('ready');
+		}
+		that._scanForJobs();
+	});
+}
 
 jp.defineJob = function(jobName, processor) {
 	var that = this;
@@ -78,11 +97,11 @@ jp.defineJob = function(jobName, processor) {
 		if ( that.jobProcessors[jobName] ) {
 			that.emit('error', new Error('Job processor with the name '+jobName+' already exists.'));
 		} else {
-			that.jobProcessors[jobName] = processor;	
-		}	
+			that.jobProcessors[jobName] = processor;
+		}
 	});
 };
- 
+
 jp.schedule = function(time, jobName, data, done) {
 	var that = this;
 	data = data || {};
@@ -95,12 +114,12 @@ jp.schedule = function(time, jobName, data, done) {
 			var nextRun;
 
 			if ( _.isString(time) ) {
-				parsedInterval = humanInterval(time);	
+				parsedInterval = humanInterval(time);
 				nextRun = new Date(Date.now() + parsedInterval);
 			} else if ( _.isNumber(time) ) {
 				nextRun = new Date(Date.now() + time);
 			} else if ( _.isDate(time) ) {
-				// TODO: add 
+				// TODO: add
 				nextRun = time;
 			} else {
 				throw new Error('[Jobs.schedule] wrong time argument %s', time);
@@ -172,7 +191,7 @@ jp.remove = function(jobName, dataMatcher, done) {
 		that.col.remove({
 			name: jobName,
 			data: dataMatcher
-		}, done);		
+		}, done);
 	});
 };
 
@@ -201,7 +220,7 @@ jp.lockAndGetNextJob = function(done) {
 			name: { $in: availableProcessors }
 		},
 		{ /* sorting params */ },
-		{ 
+		{
 			$set: {
 				lockedAt: now,
 				workerId: that.options.workerId,
@@ -242,8 +261,16 @@ jp.lockAndGetNextBatch = function(done) {
 	});
 };
 
-jp._processJobs = function(done) {
+jp._processJobs = function(ddd) {
 	var that = this;
+
+	var done = function (err) {
+		console.log('>>>Err: ', err);
+		return ddd(err);
+	}
+
+	//ECONNREFUSED
+	//ECONNREFUSED
 
 	that.ready(function(){
 		that.lockAndGetNextBatch(function(err, batch){

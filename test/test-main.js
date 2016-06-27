@@ -16,7 +16,20 @@ describe('Testing jobs', function(){
 
 	var opts = { url: mongoPath };
 
-	//*
+	this.timeout(0);
+
+	it('should create jobs object and wait for error and reconnection', function(done){
+		jobs = new Jobs(_.extend({ collection: 'jobs-test-1' }, opts));
+
+		jobs.on('error', function(err){
+			console.log('TEST jobs on error handler: ', err);
+		});
+		expect(jobs).to.be.an.instanceOf(Jobs);
+		//jobs._dropCollection(done);
+		//return true;
+	});
+	/*
+
 	it('should create jobs object', function(done){
 		jobs = new Jobs(_.extend({ collection: 'jobs-test-1' }, opts));
 		expect(jobs).to.be.an.instanceOf(Jobs);
@@ -36,7 +49,7 @@ describe('Testing jobs', function(){
 		return true;
 	});
 
-	
+
 
 	it('should add a single scheduled job', function(testDone){
 		this.timeout(4000);
@@ -59,7 +72,6 @@ describe('Testing jobs', function(){
 
 			J.schedule('in 1 seconds', 'test', { hello: 'world' });
 		});
-
 
 		return true;
 	});
@@ -85,15 +97,15 @@ describe('Testing jobs', function(){
 				debug('test1 processed!');
 				x += 1;
 				check();
-				done();				
+				done();
 			});
 
 			J.defineJob('test2', function(data, done){
 				debug('test2 processed!');
 				x += 1;
 				check();
-				done();				
-			});			
+				done();
+			});
 
 			J.on('error', function(err){
 				debug('[JOBS ERROR] '+err);
@@ -105,7 +117,7 @@ describe('Testing jobs', function(){
 
 
 		return true;
-	});		
+	});
 
 
 	it('should add a single job, schedule it 10 times and process in 2 batches', function(testDone){
@@ -126,12 +138,12 @@ describe('Testing jobs', function(){
 
 		J._dropCollection(function(){
 			J.defineJob('test', function(data, done){
-				debug('job %s executed at %s', data.hello, Date.now());				
+				debug('job %s executed at %s', data.hello, Date.now());
 				debug('test processed! hello %s ', data.hello);
 				x += 1;
 				done();
 				check();
-			});			
+			});
 
 			J.on('error', function(err){
 				debug('[JOBS ERROR] '+err);
@@ -151,7 +163,7 @@ describe('Testing jobs', function(){
 
 
 		return true;
-	});	
+	});
 
 	it('should add a single recurring job, and remove it after 5 runs', function(testDone){
 		this.timeout(10000);
@@ -170,7 +182,7 @@ describe('Testing jobs', function(){
 					expect(x).to.be.equal(4);
 					J._dropCollection(testDone);
 				}, 2000);
-				
+
 			}
 		}
 
@@ -180,7 +192,7 @@ describe('Testing jobs', function(){
 				x += 1;
 				done();
 				check();
-			});			
+			});
 
 			J.on('error', function(err){
 				debug('[JOBS ERROR] '+err);
@@ -212,10 +224,10 @@ describe('Testing jobs', function(){
 		J._dropCollection(function(){
 			J.defineJob('test', function(data, done){
 				x += 1;
-				debug('running TEST job %s time', x);				
+				debug('running TEST job %s time', x);
 				done();
 				check();
-			});			
+			});
 
 			J.on('error', function(err){
 				debug('[JOBS ERROR] '+err);
@@ -224,14 +236,14 @@ describe('Testing jobs', function(){
 			J.schedule('in 1 seconds', 'test', { hello: 'world' }, function(){
 				J.schedule('in 3 seconds', 'test', { hello: 'world' }, function(){
 					setTimeout(check, 4000);
-				});	
+				});
 			});
-			
+
 		});
 
 
 		return true;
-	});	
+	});
 
 	//*/
 

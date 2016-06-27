@@ -16,11 +16,11 @@
   "author": "Alex Ladyga",
   "license": "MIT",
   "dependencies": {
-    "async": "^1.4.0",
-    "debug": "^1.0.4",
-    "human-interval": "^0.1.4",
-    "lodash": "^3.10.0",
-    "mongodb": "^2.0.42"
+    "async": "^2.0.0-rc.6",
+    "debug": "^2.2.0",
+    "human-interval": "^0.1.6",
+    "lodash": "^4.13.1",
+    "mongodb": "^2.1.18"
   },
   "devDependencies": {
     "lodash": "^3.10.0"
