@@ -57,16 +57,6 @@ jp._dropCollection = function(done) {
 jp._scanForJobs = function(err) {
 	var that = this;
 
-	// if ( err ) {
-	// 	console.log('_scanForJobs error: ', err);
-	// 	if ( err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' ) {
-	// 		console.log('Connection to MongoDB is lost. Reconnecting in 10 sec');
-	// 		setTimeout(function(){
-	// 			that.connect('RECONNECT');
-	// 		}, 10000)
-	// 	}
-	// 	return;
-	// }
 	that.options.nextScanAt = new Date( Date.now() + that.options.scanInterval );
 	setTimeout(function(){
 		that._processJobs(that._scanForJobs.bind(that));
@@ -261,13 +251,8 @@ jp.lockAndGetNextBatch = function(done) {
 	});
 };
 
-jp._processJobs = function(ddd) {
+jp._processJobs = function(done) {
 	var that = this;
-
-	var done = function (err) {
-		console.log('>>>Err: ', err);
-		return ddd(err);
-	}
 
 	//ECONNREFUSED
 	//ECONNREFUSED
