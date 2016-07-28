@@ -42,6 +42,10 @@ var jp = Jobs.prototype;
 
 // for debug only
 
+jp._clearJobProcessors = function() {
+	this.jobProcessors = {};
+}
+
 jp._dropCollection = function(done) {
 	var that = this;
 	this.ready(function(){
@@ -125,7 +129,7 @@ jp.schedule = function(time, jobName, data, done) {
 
 				nextRunAt: nextRun
 			}, function(err){
-				if ( err ) { return that.emit('error', err); }
+				if ( err ) { that.emit('error', err); return done(err); }
 			});
 
 		});
@@ -268,7 +272,13 @@ jp._processJobs = function(done) {
 
 					if ( that.jobProcessors[job.name] ) {
 						that.jobProcessors[job.name](job.data, function(err){
-							if ( err ) { return next(err); }
+							var lastError = '';
+							var ext = {};
+							if ( err ) {
+								lastError = 'Job error ['+job.name+']: '+err.message;
+								ext.lastError = lastError;
+								that.emit('error', new Error(lastError));
+							}
 
 							// if recurring job
 							if ( job.interval ) {
@@ -276,18 +286,18 @@ jp._processJobs = function(done) {
 								that.col.update({
 									_id: job._id
 								}, {
-									$set: {
+									$set: _.extend({
 										status: 'scheduled',
 										nextRunAt: new Date( Date.now() + job.interval ),
 										lockedAt: null,
 										workerId: null
-									}
+									}, ext)
 								}, function(err){
 									if ( err ) { return next(err); }
 									next();
 								});
 							} else {
-								that.col.update({ _id: job._id }, { $set: { status: 'done', lockedAt: null } }, function(err){
+								that.col.update({ _id: job._id }, { $set: _.extend({ status: 'done', lockedAt: null }, ext) }, function(err){
 									if ( err ) { return next(err); }
 									next();
 								});
@@ -299,7 +309,7 @@ jp._processJobs = function(done) {
 					}
 
 				}, function(err){
-					if ( err ) { return that.emit('error', err); }
+					if ( err ) { that.emit('error', err); }
 					done(err);
 				});
 			} else {
