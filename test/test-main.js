@@ -238,6 +238,27 @@ describe('Testing jobs', function(){
 	});
 
 
+	it('should continue processing after 1 job timed out', function(testDone){
+		this.timeout(45000);
+
+		J.defineJob('test', function(data, done){
+			debug('Processing %s', data.x);
+
+			if ( data.x == 'TIMEOUT' ) { return; }
+
+			if ( data.x == 'VENUS' ) { testDone(); }
+
+			done();
+		});
+
+		J.schedule('2 seconds', 'test', { x: 'TIMEOUT' });
+		J.schedule('2 seconds', 'test', { x: 'SUN' });
+		J.schedule('2 seconds', 'test', { x: 'MERCURY' });
+		J.schedule('30 seconds', 'test', { x: 'VENUS' });
+
+		return true;
+	});
+
 	//*/
 
 });

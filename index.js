@@ -270,43 +270,66 @@ jp._processJobs = function(done) {
 			if (batch && batch.length) {
 				async.each(batch, function(job, next){
 
-					if ( that.jobProcessors[job.name] ) {
-						that.jobProcessors[job.name](job.data, function(err){
-							var lastError = '';
-							var ext = {};
-							if ( err ) {
-								lastError = 'Job error ['+job.name+']: '+err.message;
-								ext.lastError = lastError;
-								that.emit('error', new Error(lastError));
-							}
-
-							// if recurring job
-							if ( job.interval ) {
-								debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
-								that.col.update({
-									_id: job._id
-								}, {
-									$set: _.extend({
-										status: 'scheduled',
-										nextRunAt: new Date( Date.now() + job.interval ),
-										lockedAt: null,
-										workerId: null
-									}, ext)
-								}, function(err){
-									if ( err ) { return next(err); }
-									next();
-								});
-							} else {
-								that.col.update({ _id: job._id }, { $set: _.extend({ status: 'done', lockedAt: null }, ext) }, function(err){
-									if ( err ) { return next(err); }
-									next();
-								});
-							}
-						});
-					} else {
+					if ( !that.jobProcessors[job.name] ) {
 						that.emit('error', new Error('Job with the name '+job.name+' does not have a processor.'));
-						next();
+						return next();
 					}
+
+					var jobDoneCallback = function(err){
+						var lastError = '';
+						var ext = {};
+						if ( err ) {
+							lastError = 'Job error ['+job.name+']: '+err.message;
+							ext.lastError = lastError;
+							that.emit('error', new Error(lastError));
+						}
+
+						// if recurring job
+						if ( job.interval ) {
+							debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
+							that.col.update({
+								_id: job._id
+							}, {
+								$set: _.extend({
+									status: 'scheduled',
+									nextRunAt: new Date( Date.now() + job.interval ),
+									lockedAt: null,
+									workerId: null
+								}, ext)
+							}, next);
+						} else {
+							that.col.update({
+								_id: job._id
+							}, {
+								$set: _.extend({ status: 'done', lockedAt: null }, ext)
+							}, next);
+						}
+					};
+
+					var jobTimeout = 20000; // 20 sec
+					var jobDoneCalled = false;
+					var jobStarted = Date.now();
+
+					var jobTimeout = setTimeout(function () {
+						jobDoneCalled = true;
+						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: '+JSON.stringify(job.data)));
+						jobDoneCallback();
+					}, jobTimeout);
+
+					// try {
+						that.jobProcessors[job.name](job.data, function(err){
+							var jobTimeLapsed = Date.now()-jobStarted;
+							if ( jobTimeout ) { clearTimeout(jobTimeout); }
+							if ( jobDoneCalled ) {
+								that.emit('error', new Error('Job error ['+job.name+']: Job took '+jobTimeLapsed+'ms to run. But callback was called on timeout in '+jobTimeout+'ms.'));
+								return;
+							}
+							jobDoneCallback(err);
+						});
+					// } catch(e) {
+					// 	jobDoneCallback(e);
+					// }
+
 
 				}, function(err){
 					if ( err ) { that.emit('error', err); }
