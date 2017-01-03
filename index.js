@@ -310,7 +310,7 @@ jp._processJobs = function(done) {
 					var jobDoneCalled = false;
 					var jobStarted = Date.now();
 
-					var jobTimeout = setTimeout(function () {
+					var jt = setTimeout(function () {
 						jobDoneCalled = true;
 						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: '+JSON.stringify(job.data)));
 						jobDoneCallback();
@@ -319,7 +319,7 @@ jp._processJobs = function(done) {
 					// try {
 						that.jobProcessors[job.name](job.data, function(err){
 							var jobTimeLapsed = Date.now()-jobStarted;
-							if ( jobTimeout ) { clearTimeout(jobTimeout); }
+							if ( jt ) { clearTimeout(jt); }
 							if ( jobDoneCalled ) {
 								that.emit('error', new Error('Job error ['+job.name+']: Job took '+jobTimeLapsed+'ms to run. But callback was called on timeout in '+jobTimeout+'ms.'));
 								return;
