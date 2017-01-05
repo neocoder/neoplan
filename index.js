@@ -98,6 +98,7 @@ jp.defineJob = function(jobName, processor) {
 
 jp.schedule = function(time, jobName, data, done) {
 	var that = this;
+
 	data = data || {};
 	done = done || function(){};
 
@@ -129,7 +130,9 @@ jp.schedule = function(time, jobName, data, done) {
 
 				nextRunAt: nextRun
 			}, function(err){
-				if ( err ) { that.emit('error', err); return done(err); }
+				//TODO: test the done function call on err and success
+				if ( err ) { that.emit('error', err); }
+				return done(err);
 			});
 
 		});
