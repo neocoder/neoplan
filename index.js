@@ -13,6 +13,8 @@ function Jobs(opts) {
 
 	EventEmitter.call(this);
 
+	this.setMaxListeners(0);
+
 	this.jobProcessors = {};
 
 	this.options = _.extend({
