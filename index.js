@@ -6,7 +6,7 @@ var _ = require('lodash'),
 	EventEmitter = require('events').EventEmitter,
 	debug = require('debug')('intime');
 
-function Jobs(opts) {
+function Neoplan(opts) {
 	var that = this;
 
 	that._ready = false;
@@ -38,9 +38,9 @@ function Jobs(opts) {
 	this.connect();
 }
 
-util.inherits(Jobs, EventEmitter);
+util.inherits(Neoplan, EventEmitter);
 
-var jp = Jobs.prototype;
+var jp = Neoplan.prototype;
 
 // for debug only
 
@@ -119,7 +119,7 @@ jp.schedule = function(time, jobName, data, done) {
 				// TODO: add
 				nextRun = time;
 			} else {
-				throw new Error('[Jobs.schedule] wrong time argument %s', time);
+				throw new Error('[Neoplan.schedule] wrong time argument %s', time);
 			}
 
 			debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
@@ -353,4 +353,4 @@ jp.close = function() {
 	});
 };
 
-module.exports = Jobs;
+module.exports = Neoplan;

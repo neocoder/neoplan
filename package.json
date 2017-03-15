@@ -1,6 +1,6 @@
 {
-  "name": "intime",
-  "version": "0.0.2",
+  "name": "neoplan",
+  "version": "0.0.3",
   "description": "Lightweight MongoDB based Node.js job scheduler",
   "main": "index.js",
   "scripts": {
@@ -21,8 +21,5 @@
     "human-interval": "^0.1.6",
     "lodash": "^4.13.1",
     "mongodb": "^2.1.18"
-  },
-  "devDependencies": {
-    "lodash": "^3.10.0"
   }
 }

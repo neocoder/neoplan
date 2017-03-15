@@ -1,37 +1,37 @@
-# Intime
+# Neoplan
 
-Intime is a lightweight MongoDB based Node.js job scheduler inspired by Agenda.
+Neoplan is a lightweight MongoDB based Node.js job scheduler inspired by Agenda.
 
-Intime is different to Agenda in several aspects: its not that feature rich and it allows to schedule jobs with the same name but different data parameters.
+Neoplan is different to Agenda in several aspects: its not that feature rich and it allows to schedule jobs with the same name but different data parameters.
 
 # Installation
 
 Install via NPM
 
-    npm install intime
+    npm install neoplan
 
 You will also need a working [mongo](http://www.mongodb.org/) database (2.4+) to point it to.
 
 # Example Usage
 
 ```js
-var agenda = new Agenda({db: { address: 'localhost:27017/agenda-example'}});
+var neoplan = new Neoplan({db: { address: 'localhost:27017/agenda-example'}});
 
-agenda.define('delete old users', function(job, done) {
+neoplan.define('delete old users', function(data, done) {
   User.remove({lastLogIn: { $lt: twoDaysAgo }}, done);
 });
 
-agenda.every('3 minutes', 'delete old users');
+neoplan.every('3 minutes', 'delete old users');
 
 // Alternatively, you could also do:
 
-agenda.every('*/3 * * * *', 'delete old users');
+neoplan.every('*/3 * * * *', 'delete old users');
 
-agenda.start();
+neoplan.start();
 ```
 
 ```js
-agenda.define('send email report', {priority: 'high', concurrency: 10}, function(job, done) {
+neoplan.define('send email report', {priority: 'high', concurrency: 10}, function(job, done) {
   var data = job.attrs.data;
   emailClient.send({
     to: data.to,
@@ -41,19 +41,19 @@ agenda.define('send email report', {priority: 'high', concurrency: 10}, function
   }, done);
 });
 
-agenda.schedule('in 20 minutes', 'send email report', {to: 'admin@example.com'});
-agenda.start();
+neoplan.schedule('in 20 minutes', 'send email report', {to: 'admin@example.com'});
+neoplan.start();
 ```
 
 ```js
-var weeklyReport = agenda.schedule('Saturday at noon', 'send email report', {to: 'another-guy@example.com'});
+var weeklyReport = neoplan.schedule('Saturday at noon', 'send email report', {to: 'another-guy@example.com'});
 weeklyReport.repeatEvery('1 week').save();
-agenda.start();
+neoplan.start();
 ```
 
 # Full documentation
 
-Agenda's basic control structure is an instance of an agenda. Agenda's are
+Neoplan's basic control structure is an instance of an neoplan. Neoplan's are
 mapped to a database collection and load the jobs from within.
 
 ## Table of Contents
@@ -71,7 +71,7 @@ mapped to a database collection and load the jobs from within.
 All configuration methods are chainable, meaning you can do something like:
 
 ```js
-var agenda = new Agenda();
+var agenda = new Neoplan();
 agenda
   .database(...)
   .processEvery('3 minutes')
@@ -85,13 +85,13 @@ Specifies the database at the `url` specified. If no collection name is give,
 `agendaJobs` is used.
 
 ```js
-agenda.database('localhost:27017/agenda-test', 'agendaJobs');
+neoplan.database('localhost:27017/agenda-test', 'agendaJobs');
 ```
 
 You can also specify it during instantiation.
 
 ```js
-var agenda = new Agenda({db: { address: 'localhost:27017/agenda-test', collection: 'agendaJobs' }});
+var agenda = new Neoplan({db: { address: 'localhost:27017/agenda-test', collection: 'agendaJobs' }});
 ```
 
 ### mongo(mongoSkinInstance)
@@ -103,7 +103,7 @@ you.
 You can also specify it during instantiation.
 
 ```js
-var agenda = new Agenda({mongo: mongoSkinInstance});
+var agenda = new Neoplan({mongo: mongoSkinInstance});
 ```
 
 ### name(name)
@@ -113,13 +113,13 @@ Useful for if you have multiple job processors (agendas) and want to see which
 job queue last ran the job.
 
 ```js
-agenda.name(os.hostname + '-' + process.pid);
+neoplan.name(os.hostname + '-' + process.pid);
 ```
 
 You can also specify it during instantiation
 
 ```js
-var agenda = new Agenda({name: 'test queue'});
+var agenda = new Neoplan({name: 'test queue'});
 ```
 
 ### processEvery(interval)
@@ -128,7 +128,7 @@ Takes a string `interval` which can be either a traditional javascript number,
 or a string such as `3 minutes`
 
 Specifies the frequency at which agenda will query the database looking for jobs
-that need to be processed. Agenda internally uses `setTimeout` to guarantee that
+that need to be processed. Neoplan internally uses `setTimeout` to guarantee that
 jobs run at (close to ~3ms) the right time.
 
 Decreasing the frequency will result in fewer database queries, but more jobs
@@ -139,13 +139,13 @@ that haven't run will still be locked, meaning that you may have to wait for the
 lock to expire.
 
 ```js
-agenda.processEvery('1 minute');
+neoplan.processEvery('1 minute');
 ```
 
 You can also specify it during instantiation
 
 ```js
-var agenda = new Agenda({processEvery: '30 seconds'});
+var agenda = new Neoplan({processEvery: '30 seconds'});
 ```
 
 ### maxConcurrency(number)
@@ -154,13 +154,13 @@ Takes a `number` which specifies the max number of jobs that can be running at
 any given moment. By default it is `20`.
 
 ```js
-agenda.maxConcurrency(20);
+neoplan.maxConcurrency(20);
 ```
 
 You can also specify it during instantiation
 
 ```js
-var agenda = new Agenda({maxConcurrency: 20});
+var agenda = new Neoplan({maxConcurrency: 20});
 ```
 
 ### defaultConcurrency(number)
@@ -169,13 +169,13 @@ Takes a `number` which specifies the default number of a specific that can be ru
 any given moment. By default it is `5`.
 
 ```js
-agenda.defaultConcurrency(5);
+neoplan.defaultConcurrency(5);
 ```
 
 You can also specify it during instantiation
 
 ```js
-var agenda = new Agenda({defaultConcurrency: 5});
+var agenda = new Neoplan({defaultConcurrency: 5});
 ```
 
 ### defaultLockLifetime(number)
@@ -188,13 +188,13 @@ A job will unlock if it is finished (ie. `done` is called) before the `lockLifet
 The lock is useful if the job crashes or times out.
 
 ```js
-agenda.defaultLockLifetime(10000);
+neoplan.defaultLockLifetime(10000);
 ```
 
 You can also specify it during instantiation
 
 ```js
-var agenda = new Agenda({defaultLockLifetime: 10000});
+var agenda = new Neoplan({defaultLockLifetime: 10000});
 ```
 
 ## Defining Job Processors
@@ -231,7 +231,7 @@ Priority mapping:
 
 Async Job:
 ```js
-agenda.define('some long running job', function(job, done) {
+neoplan.define('some long running job', function(job, done) {
   doSomelengthyTask(function(data) {
     formatThatData(data);
     sendThatData(data);
@@ -243,7 +243,7 @@ agenda.define('some long running job', function(job, done) {
 Sync Job:
 
 ```js
-agenda.define('say hello', function(job) {
+neoplan.define('say hello', function(job) {
   console.log("Hello!");
 });
 ```
@@ -266,7 +266,7 @@ under `job.attrs.data`.
 Returns the `job`.
 
 ```js
-agenda.define('printAnalyticsReport', function(job, done) {
+neoplan.define('printAnalyticsReport', function(job, done) {
   User.doSomethingReallyIntensive(function(err, users) {
     processUserData();
     console.log("I print a report!");
@@ -274,14 +274,14 @@ agenda.define('printAnalyticsReport', function(job, done) {
   });
 });
 
-agenda.every('15 minutes', 'printAnalyticsReport');
+neoplan.every('15 minutes', 'printAnalyticsReport');
 ```
 
 Optionally, `name` could be array of job names, which is convenient for scheduling
 different jobs for same `interval`.
 
 ```js
-agenda.every('15 minutes', ['printAnalyticsReport', 'sendNotifications', 'updateUserRecords']);
+neoplan.every('15 minutes', ['printAnalyticsReport', 'sendNotifications', 'updateUserRecords']);
 ```
 
 In this case, `every` returns array of `jobs`.
@@ -297,13 +297,13 @@ under `job.data`.
 Returns the `job`.
 
 ```js
-agenda.schedule('tomorrow at noon', 'printAnalyticsReport', {userCount: 100});
+neoplan.schedule('tomorrow at noon', 'printAnalyticsReport', {userCount: 100});
 ```
 
 Optionally, `name` could be array of job names, similar to `every` method.
 
 ```js
-agenda.schedule('tomorrow at noon', ['printAnalyticsReport', 'sendNotifications', 'updateUserRecords']);
+neoplan.schedule('tomorrow at noon', ['printAnalyticsReport', 'sendNotifications', 'updateUserRecords']);
 ```
 
 In this case, `schedule` returns array of `jobs`.
@@ -318,7 +318,7 @@ under `job.data`.
 Returns the `job`.
 
 ```js
-agenda.now('do the hokey pokey');
+neoplan.now('do the hokey pokey');
 ```
 
 ### create(jobName, data)
@@ -327,7 +327,7 @@ Returns an instance of a `jobName` with `data`. This does *NOT* save the job in
 the database. See below to learn how to manually work with jobs.
 
 ```js
-var job = agenda.create('printAnalyticsReport', {userCount: 100});
+var job = neoplan.create('printAnalyticsReport', {userCount: 100});
 job.save(function(err) {
   console.log("Job successfully saved");
 });
@@ -342,7 +342,7 @@ Lets you query all of the jobs in the agenda job's database. This is a full [mon
 `find` query. See mongoskin's documentation for details.
 
 ```js
-agenda.jobs({name: 'printAnalyticsReport'}, function(err, jobs) {
+neoplan.jobs({name: 'printAnalyticsReport'}, function(err, jobs) {
   // Work with jobs (see below)
 });
 ```
@@ -352,11 +352,11 @@ agenda.jobs({name: 'printAnalyticsReport'}, function(err, jobs) {
 Cancels any jobs matching the passed mongoskin query, and removes them from the database.
 
 ```js
-agenda.cancel({name: 'printAnalyticsReport'}, function(err, numRemoved) {
+neoplan.cancel({name: 'printAnalyticsReport'}, function(err, numRemoved) {
 });
 ```
 
-This functionality can also be achieved by first retrieving all the jobs from the database using `agenda.jobs()`, looping through the resulting array and calling `job.remove()` on each. It is however preferable to use `agenda.cancel()` for this use case, as this ensures the operation is atomic.
+This functionality can also be achieved by first retrieving all the jobs from the database using `neoplan.jobs()`, looping through the resulting array and calling `job.remove()` on each. It is however preferable to use `neoplan.cancel()` for this use case, as this ensures the operation is atomic.
 
 ### purge(cb)
 
@@ -365,7 +365,7 @@ Removes all jobs in the database without defined behaviors. Useful if you change
 *IMPORTANT:* Do not run this before you finish defining all of your jobs. If you do, you will nuke your database of jobs.
 
 ```js
-agenda.purge(function(err, numRemoved) {
+neoplan.purge(function(err, numRemoved) {
 });
 ```
 
@@ -390,7 +390,7 @@ shutdown.
 
 ```js
 function graceful() {
-  agenda.stop(function() {
+  neoplan.stop(function() {
     process.exit(0);
   });
 }
@@ -403,14 +403,14 @@ process.on('SIGINT' , graceful);
 ## Multiple job processors
 
 Sometimes you may want to have multiple node instances / machines process from
-the same queue. Agenda supports a locking mechanism to ensure that multiple
+the same queue. Neoplan supports a locking mechanism to ensure that multiple
 queues don't process the same job.
 
 You can configure the locking mechanism by specifying `lockLifetime` as an
 interval when defining the job.
 
 ```js
-agenda.define('someJob', {lockLifetime: 10000}, function(job, cb) {
+neoplan.define('someJob', {lockLifetime: 10000}, function(job, cb) {
   //Do something in 10 seconds or less...
 });
 ```
@@ -512,7 +512,7 @@ Resets the lock on the job. Useful to indicate that the job hasn't timed out
 when you have very long running jobs.
 
 ```js
-agenda.define('super long job', function(job, done) {
+neoplan.define('super long job', function(job, done) {
   doSomeLongTask(function() {
     job.touch(function() {
       doAnotherLongTask(function() {
@@ -533,7 +533,7 @@ An instance of an agenda will emit the following events:
 - `start:job name` - called just before the specified job starts
 
 ```js
-agenda.on('start', function(job) {
+neoplan.on('start', function(job) {
   console.log("Job %s starting", job.attrs.name);
 });
 ```
@@ -542,7 +542,7 @@ agenda.on('start', function(job) {
 - `complete:job name` - called when a job finishes, regardless of if it succeeds or fails
 
 ```js
-agenda.on('complete', function(job) {
+neoplan.on('complete', function(job) {
   console.log("Job %s finished", job.attrs.name);
 });
 ```
@@ -551,7 +551,7 @@ agenda.on('complete', function(job) {
 - `success:job name` - called when a job finishes successfully
 
 ```js
-agenda.once('success:send email', function(job) {
+neoplan.once('success:send email', function(job) {
   console.log("Sent Email Successfully to: %s", job.attrs.data.to);
 });
 ```
@@ -560,7 +560,7 @@ agenda.once('success:send email', function(job) {
 - `fail:job name` - called when a job throws an error
 
 ```js
-agenda.on('fail:send email', function(err, job) {
+neoplan.on('fail:send email', function(err, job) {
   console.log("Job failed with error: %s", err.message);
 });
 ```
@@ -570,7 +570,7 @@ agenda.on('fail:send email', function(err, job) {
 
 ### Web Interface?
 
-Agenda itself does not have a web interface built in. That being said, there is a stand-alone web interface in the form of [agenda-ui](https://github.com/moudy/agenda-ui).
+Neoplan itself does not have a web interface built in. That being said, there is a stand-alone web interface in the form of [agenda-ui](https://github.com/moudy/agenda-ui).
 
 Screenshot:
 
@@ -583,17 +583,17 @@ non-essential data (such as sessions) and without configuration doesn't
 guarantee the same level of persistence as Mongo (should the server need to be
 restarted/crash).
 
-Agenda decides to focus on persistence without requiring special configuration
+Neoplan decides to focus on persistence without requiring special configuration
 of Redis (thereby degrading the performance of the Redis server on non-critical
 data, such as sessions).
 
 Ultimately if enough people want a Redis driver instead of Mongo, I will write
-one. (Please open an issue requesting it). For now, Agenda decided to focus on
+one. (Please open an issue requesting it). For now, Neoplan decided to focus on
 guaranteed persistence.
 
 ### Spawning / forking processes.
 
-Ultimately Agenda can work from a single job queue across multiple machines, node processes, or forks. If you are interested in having more than one worker, [Bars3s](http://github.com/bars3s) has written up a fantastic example of how one might do it:
+Ultimately Neoplan can work from a single job queue across multiple machines, node processes, or forks. If you are interested in having more than one worker, [Bars3s](http://github.com/bars3s) has written up a fantastic example of how one might do it:
 
 ```js
 var cluster = require('cluster'),
