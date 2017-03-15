@@ -4,7 +4,7 @@ var _ = require('lodash'),
 	util = require('util'),
 	async = require('async'),
 	EventEmitter = require('events').EventEmitter,
-	debug = require('debug')('intime');
+	debug = require('debug')('neoplan');
 
 function Neoplan(opts) {
 	var that = this;
@@ -19,7 +19,7 @@ function Neoplan(opts) {
 
 	this.options = _.extend({
 		workerId: 0,
-		url: 'mongodb://localhost:27017/intime',
+		url: 'mongodb://localhost:27017/neoplan',
 		collection: 'jobs',
 		lockLifetime: 10 * 60 * 1000, //10 minute default lockLifetime
 		concurrency: 10, // Process n jobs at a time ( lock & get )

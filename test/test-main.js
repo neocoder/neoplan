@@ -1,7 +1,7 @@
 var expect = require('chai').expect;
 var _ = require('lodash');
 var Jobs = require('../');
-var debug = require('debug')('intime');
+var debug = require('debug')('neoplan');
 
 var humanInterval = require('human-interval');
 
@@ -16,7 +16,7 @@ it = function(){};
  * Usuallay you should not change this value
  */
 
-var mongoPath = process.env.MONGOPATH || 'mongodb://localhost:27017/intime';
+var mongoPath = process.env.MONGOPATH || 'mongodb://localhost:27017/neoplan';
 var opts = { url: mongoPath };
 var J = new Jobs(_.extend({ collection: 'jobs-test' }, opts));
 

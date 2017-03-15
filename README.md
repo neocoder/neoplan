@@ -15,7 +15,7 @@ You will also need a working [mongo](http://www.mongodb.org/) database (2.4+) to
 # Example Usage
 
 ```js
-var neoplan = new Neoplan({db: { address: 'localhost:27017/agenda-example'}});
+var neoplan = new Neoplan({db: { address: 'localhost:27017/neoplan-example'}});
 
 neoplan.define('delete old users', function(data, done) {
   User.remove({lastLogIn: { $lt: twoDaysAgo }}, done);
@@ -57,7 +57,7 @@ Neoplan's basic control structure is an instance of an neoplan. Neoplan's are
 mapped to a database collection and load the jobs from within.
 
 ## Table of Contents
-- [Configuring an agenda](#configuring-an-agenda)
+- [Configuring an neoplan](#configuring-an-neoplan)
 - [Defining job processors](#defining-job-processors)
 - [Creating jobs](#creating-jobs)
 - [Managing jobs](#managing-jobs)
@@ -67,12 +67,12 @@ mapped to a database collection and load the jobs from within.
 - [Job Queue Events](#job-queue-events)
 - [Frequently asked questions](#frequently-asked-questions)
 
-## Configuring an agenda
+## Configuring an neoplan
 All configuration methods are chainable, meaning you can do something like:
 
 ```js
-var agenda = new Neoplan();
-agenda
+var neoplan = new Neoplan();
+neoplan
   .database(...)
   .processEvery('3 minutes')
   ...;
@@ -82,34 +82,34 @@ agenda
 ### database(url, [collectionName])
 
 Specifies the database at the `url` specified. If no collection name is give,
-`agendaJobs` is used.
+`jobs` is used.
 
 ```js
-neoplan.database('localhost:27017/agenda-test', 'agendaJobs');
+neoplan.database('localhost:27017/neoplan-test', 'jobs');
 ```
 
 You can also specify it during instantiation.
 
 ```js
-var agenda = new Neoplan({db: { address: 'localhost:27017/agenda-test', collection: 'agendaJobs' }});
+var neoplan = new Neoplan({db: { address: 'localhost:27017/neoplan-test', collection: 'jobs' }});
 ```
 
 ### mongo(mongoSkinInstance)
 
 Use an existing mongoskin instance. This can help consolidate connections to a
-database. You can instead use `.database` to have agenda handle connecting for
+database. You can instead use `.database` to have neoplan handle connecting for
 you.
 
 You can also specify it during instantiation.
 
 ```js
-var agenda = new Neoplan({mongo: mongoSkinInstance});
+var neoplan = new Neoplan({mongo: mongoSkinInstance});
 ```
 
 ### name(name)
 
 Takes a string `name` and sets `lastModifiedBy` to it in the job database.
-Useful for if you have multiple job processors (agendas) and want to see which
+Useful for if you have multiple job processors and want to see which
 job queue last ran the job.
 
 ```js
@@ -119,7 +119,7 @@ neoplan.name(os.hostname + '-' + process.pid);
 You can also specify it during instantiation
 
 ```js
-var agenda = new Neoplan({name: 'test queue'});
+var neoplan = new Neoplan({name: 'test queue'});
 ```
 
 ### processEvery(interval)
@@ -127,7 +127,7 @@ var agenda = new Neoplan({name: 'test queue'});
 Takes a string `interval` which can be either a traditional javascript number,
 or a string such as `3 minutes`
 
-Specifies the frequency at which agenda will query the database looking for jobs
+Specifies the frequency at which neoplan will query the database looking for jobs
 that need to be processed. Neoplan internally uses `setTimeout` to guarantee that
 jobs run at (close to ~3ms) the right time.
 
@@ -145,7 +145,7 @@ neoplan.processEvery('1 minute');
 You can also specify it during instantiation
 
 ```js
-var agenda = new Neoplan({processEvery: '30 seconds'});
+var neoplan = new Neoplan({processEvery: '30 seconds'});
 ```
 
 ### maxConcurrency(number)
@@ -160,7 +160,7 @@ neoplan.maxConcurrency(20);
 You can also specify it during instantiation
 
 ```js
-var agenda = new Neoplan({maxConcurrency: 20});
+var neoplan = new Neoplan({maxConcurrency: 20});
 ```
 
 ### defaultConcurrency(number)
@@ -175,7 +175,7 @@ neoplan.defaultConcurrency(5);
 You can also specify it during instantiation
 
 ```js
-var agenda = new Neoplan({defaultConcurrency: 5});
+var neoplan = new Neoplan({defaultConcurrency: 5});
 ```
 
 ### defaultLockLifetime(number)
@@ -194,7 +194,7 @@ neoplan.defaultLockLifetime(10000);
 You can also specify it during instantiation
 
 ```js
-var agenda = new Neoplan({defaultLockLifetime: 10000});
+var neoplan = new Neoplan({defaultLockLifetime: 10000});
 ```
 
 ## Defining Job Processors
@@ -211,7 +211,7 @@ you may omit `done` from the signature.
 `options` is an optional argument which can overwrite the defaults. It can take
 the following:
 
-- `concurrency`: `number` maxinum number of that job that can be running at once (per instance of agenda)
+- `concurrency`: `number` maxinum number of that job that can be running at once (per instance of neoplan)
 - `lockLifetime`: `number` interval in ms of how long the job stays locked for (see [multiple job processors](#multiple-job-processors) for more info).
 A job will automatically unlock if `done()` is called.
 - `priority`: `(lowest|low|normal|high|highest|number)` specifies the priority
@@ -338,7 +338,7 @@ job.save(function(err) {
 
 ### jobs(mongoskin query)
 
-Lets you query all of the jobs in the agenda job's database. This is a full [mongoskin](https://github.com/kissjs/node-mongoskin)
+Lets you query all of the jobs in the neoplan job's database. This is a full [mongoskin](https://github.com/kissjs/node-mongoskin)
 `find` query. See mongoskin's documentation for details.
 
 ```js
@@ -371,7 +371,7 @@ neoplan.purge(function(err, numRemoved) {
 
 ## Starting the job processor
 
-To get agenda to start processing jobs from the database you must start it. This
+To get neoplan to start processing jobs from the database you must start it. This
 will schedule an interval (based on `processEvery`) to check for new jobs and
 run them. You can also stop the queue.
 
@@ -527,7 +527,7 @@ neoplan.define('super long job', function(job, done) {
 
 ## Job Queue Events
 
-An instance of an agenda will emit the following events:
+An instance of an neoplan will emit the following events:
 
 - `start` - called just before a job starts
 - `start:job name` - called just before the specified job starts
@@ -570,11 +570,11 @@ neoplan.on('fail:send email', function(err, job) {
 
 ### Web Interface?
 
-Neoplan itself does not have a web interface built in. That being said, there is a stand-alone web interface in the form of [agenda-ui](https://github.com/moudy/agenda-ui).
+Neoplan itself does not have a web interface built in. That being said, there is a stand-alone web interface in the form of [neoplan-ui](https://github.com/moudy/neoplan-ui).
 
 Screenshot:
 
-![agenda-ui interface](https://raw.githubusercontent.com/moudy/agenda-ui/screenshot/agenda-ui-screenshot.png)
+![neoplan-ui interface](https://raw.githubusercontent.com/moudy/neoplan-ui/screenshot/neoplan-ui-screenshot.png)
 
 ### Mongo vs Redis
 
@@ -632,7 +632,7 @@ if (cluster.isMaster) {
 
     if (process.env.job) {
         console.log('start job server: ' + cluster.worker.id);
-        require('./app/job-worker');//initialize the agenda here
+        require('./app/job-worker');//initialize the neoplan here
     }
 }
 
