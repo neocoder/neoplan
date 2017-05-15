@@ -272,6 +272,26 @@ describe('Testing jobs', function(){
 		return true;
 	});
 
+	it('should adjust job timeout', function(testDone){
+		this.timeout(10000);
+		var jobTimeout = 5000;
+
+		J.once('job-late', function(jobName, data){
+			expect(data.timeout).to.be.equal(jobTimeout);
+			testDone();
+		});
+
+		J.defineJob('test', function(data, done){
+			setTimeout(function () {
+				done();
+			}, 7500);
+		}, { timeout: jobTimeout });
+
+		J.now('test');
+
+		return true;
+	});
+
 	//*/
 
 });

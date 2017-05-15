@@ -86,7 +86,7 @@ jp.connect = function(reconnect) {
 	});
 }
 
-jp.defineJob = function(jobName, processor) {
+jp.defineJob = function(jobName, processor, opts = {}) {
 	var that = this;
 
 	this.ready(function(){
@@ -95,6 +95,7 @@ jp.defineJob = function(jobName, processor) {
 		} else {
 			that.jobProcessors[jobName] = processor;
 		}
+		that.jobProcessors[jobName].opts = opts;
 	});
 };
 
@@ -341,13 +342,18 @@ jp._processJobs = function(done) {
 						}
 					};
 
-					var jobTimeout = 20000; // 20 sec
+					var jobOpts = Object.assign({
+						timeout: 20000 // 20 sec
+					}, that.jobProcessors[job.name].opts || {});
+
+					var jobTimeout = jobOpts.timeout;
 					var jobDoneCalled = false;
 					var jobStarted = Date.now();
 
 					var jt = setTimeout(function () {
 						jobDoneCalled = true;
 						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: '+JSON.stringify(job.data)));
+						that.emit('timeout', job.name, job.data);
 						jobDoneCallback();
 					}, jobTimeout);
 
@@ -357,6 +363,7 @@ jp._processJobs = function(done) {
 							if ( jt ) { clearTimeout(jt); }
 							if ( jobDoneCalled ) {
 								that.emit('error', new Error('Job error ['+job.name+']: Job took '+jobTimeLapsed+'ms to run. But callback was called on timeout in '+jobTimeout+'ms.'));
+								that.emit('job-late', job.name, { elapsed: jobTimeLapsed, timeout: jobTimeout  });
 								return;
 							}
 							jobDoneCallback(err);
