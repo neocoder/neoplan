@@ -176,23 +176,24 @@ describe('Testing jobs', function(){
 
 	it('should add a single recurring job, schedule and reschedule it for a later time', function(testDone){
 		var x = 0;
+		var t;
 
 		function check() {
 			expect(x).to.be.equal(1);
 			testDone();
 		}
 
-
 		J.defineJob('test', function(data, done){
 			x += 1;
 			debug('running TEST job %s time', x);
 			done();
+			clearTimeout(t);
 			check();
 		});
 
 		J.schedule('in 1 seconds', 'test', { hello: 'world' }, function(){
 			J.schedule('in 3 seconds', 'test', { hello: 'world' }, function(){
-				setTimeout(check, 4000);
+				t = setTimeout(check, 4000);
 			});
 		});
 
@@ -255,6 +256,18 @@ describe('Testing jobs', function(){
 		J.schedule('2 seconds', 'test', { x: 'SUN' });
 		J.schedule('2 seconds', 'test', { x: 'MERCURY' });
 		J.schedule('30 seconds', 'test', { x: 'VENUS' });
+
+		return true;
+	});
+
+	it('should run job immidiately', function(testDone){
+		this.timeout(45000);
+
+		J.defineJob('test', function(data, done){
+			testDone();
+		});
+
+		J.now('test');
 
 		return true;
 	});

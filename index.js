@@ -141,6 +141,36 @@ jp.schedule = function(time, jobName, data, done) {
 	});
 };
 
+jp.now = function(jobName, data, done) {
+	var that = this;
+
+	data = data || {};
+	done = done || function(){};
+
+	that.ready(function(){
+		that.remove(jobName, data, function(err){
+			if ( err ) { return that.emit('error', err); }
+
+			var nextRun = new Date();
+
+			debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
+
+			that.col.insert({
+				name: jobName,
+				data: data,
+
+				status: 'scheduled', // 'pending', 'processing', 'done', 'scheduled'
+
+				nextRunAt: nextRun
+			}, function(err){
+				if ( err ) { that.emit('error', err); }
+				return done(err);
+			});
+
+		});
+	});
+};
+
 jp.every = function(time, jobName, data, opts, done) {
 	var that = this;
 	data = data || {};
