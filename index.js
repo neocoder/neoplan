@@ -313,8 +313,10 @@ jp._processJobs = function(done) {
 
 					var jobDoneCallback = function(err){
 						var lastError = '';
-						var ext = {};
-						if ( err ) {
+						var ext = {
+							lastError: ''
+						};
+						if (err) {
 							lastError = 'Job error ['+job.name+']: '+err.message;
 							ext.lastError = lastError;
 							that.emit('error', new Error(lastError));
@@ -323,12 +325,34 @@ jp._processJobs = function(done) {
 						// if recurring job
 						if ( job.interval ) {
 							debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
+							let nextRun = new Date(Date.now() + job.interval);
+							let errorCount = 0;
+
+							if (lastError) {
+								errorCount = jobs.errCounter ? jobs.errCounter++ : 1;
+
+								switch (errorCount) {
+									case 1:
+										nextRun = new Date(Date.now() + 5 * 60 * 1000);
+										break;
+									case 2:
+										nextRun = new Date(Date.now() + 15 * 60 * 1000);
+										break;
+									case 3:
+										nextRun = new Date(Date.now() + 30 * 60 * 1000);
+										break;
+									default:
+										nextRun = new Date(Date.now() + job.interval);
+								}
+							}
+
 							that.col.update({
 								_id: job._id
 							}, {
 								$set: _.extend({
 									status: 'scheduled',
-									nextRunAt: new Date( Date.now() + job.interval ),
+									nextRunAt: nextRun,
+									errCounter: errorCount,
 									lockedAt: null,
 									workerId: null
 								}, ext)
