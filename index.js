@@ -329,7 +329,7 @@ jp._processJobs = function(done) {
 							let errorCount = 0;
 
 							if (lastError) {
-								errorCount = job.errCounter ? job.errCounter++ : 1;
+								errorCount = job.errCounter ? job.errCounter + 1 : 1;
 
 								switch (errorCount) {
 									case 1:
