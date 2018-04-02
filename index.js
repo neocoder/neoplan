@@ -327,22 +327,25 @@ jp._processJobs = function(done) {
 							debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
 							let nextRun = new Date(Date.now() + job.interval);
 							let errorCount = 0;
+							let inter = 5 * 60 * 1000;
 
 							if (lastError) {
 								errorCount = job.errCounter ? job.errCounter + 1 : 1;
 
-								switch (errorCount) {
-									case 1:
-										nextRun = new Date(Date.now() + 5 * 60 * 1000);
-										break;
-									case 2:
-										nextRun = new Date(Date.now() + 15 * 60 * 1000);
-										break;
-									case 3:
-										nextRun = new Date(Date.now() + 30 * 60 * 1000);
-										break;
-									default:
-										nextRun = new Date(Date.now() + job.interval);
+								if (job.interval > inter) {
+									switch (errorCount) {
+										case 1:
+											nextRun = new Date(Date.now() + 5 * 60 * 1000);
+											break;
+										case 2:
+											nextRun = new Date(Date.now() + 15 * 60 * 1000);
+											break;
+										case 3:
+											nextRun = new Date(Date.now() + 30 * 60 * 1000);
+											break;
+										default:
+											nextRun = new Date(Date.now() + job.interval);
+									}
 								}
 							}
 
