@@ -379,7 +379,7 @@ jp._processJobs = function(done) {
 
 					var jt = setTimeout(function () {
 						jobDoneCalled = true;
-						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: '+JSON.stringify(job.data)));
+						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: ' + JSON.stringify(job.data)));
 						that.emit('timeout', job.name, job.data);
 						jobDoneCallback();
 					}, jobTimeout);
@@ -389,7 +389,7 @@ jp._processJobs = function(done) {
 							var jobTimeLapsed = Date.now()-jobStarted;
 							if ( jt ) { clearTimeout(jt); }
 							if ( jobDoneCalled ) {
-								that.emit('error', new Error('Job error ['+job.name+']: Job took '+jobTimeLapsed+'ms to run. But callback was called on timeout in '+jobTimeout+'ms.'));
+								that.emit('error', new Error(`Job error [${job.name}] (id: ${job._id}): Job took ${jobTimeLapsed}ms to run. But callback was called on timeout in ${jobTimeout}ms. job data: ${JSON.stringify(job.data)}`));
 								that.emit('job-late', job.name, { elapsed: jobTimeLapsed, timeout: jobTimeout  });
 								return;
 							}
