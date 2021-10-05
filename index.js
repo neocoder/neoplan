@@ -313,8 +313,10 @@ jp._processJobs = function(done) {
 
 					var jobDoneCallback = function(err){
 						var lastError = '';
-						var ext = {};
-						if ( err ) {
+						var ext = {
+							lastError: ''
+						};
+						if (err) {
 							lastError = 'Job error ['+job.name+']: '+err.message;
 							ext.lastError = lastError;
 							that.emit('error', new Error(lastError));
@@ -323,12 +325,37 @@ jp._processJobs = function(done) {
 						// if recurring job
 						if ( job.interval ) {
 							debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
+							let nextRun = new Date(Date.now() + job.interval);
+							let errorCount = 0;
+							let inter = 5 * 60 * 1000;
+
+							if (lastError) {
+								errorCount = job.errCounter ? job.errCounter + 1 : 1;
+
+								if (job.interval > inter) {
+									switch (errorCount) {
+										case 1:
+											nextRun = new Date(Date.now() + 5 * 60 * 1000);
+											break;
+										case 2:
+											nextRun = new Date(Date.now() + 15 * 60 * 1000);
+											break;
+										case 3:
+											nextRun = new Date(Date.now() + 30 * 60 * 1000);
+											break;
+										default:
+											nextRun = new Date(Date.now() + job.interval);
+									}
+								}
+							}
+
 							that.col.update({
 								_id: job._id
 							}, {
 								$set: _.extend({
 									status: 'scheduled',
-									nextRunAt: new Date( Date.now() + job.interval ),
+									nextRunAt: nextRun,
+									errCounter: errorCount,
 									lockedAt: null,
 									workerId: null
 								}, ext)
@@ -352,7 +379,7 @@ jp._processJobs = function(done) {
 
 					var jt = setTimeout(function () {
 						jobDoneCalled = true;
-						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: '+JSON.stringify(job.data)));
+						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: ' + JSON.stringify(job.data)));
 						that.emit('timeout', job.name, job.data);
 						jobDoneCallback();
 					}, jobTimeout);
@@ -362,7 +389,7 @@ jp._processJobs = function(done) {
 							var jobTimeLapsed = Date.now()-jobStarted;
 							if ( jt ) { clearTimeout(jt); }
 							if ( jobDoneCalled ) {
-								that.emit('error', new Error('Job error ['+job.name+']: Job took '+jobTimeLapsed+'ms to run. But callback was called on timeout in '+jobTimeout+'ms.'));
+								that.emit('error', new Error(`Job error [${job.name}] (id: ${job._id}): Job took ${jobTimeLapsed}ms to run. But callback was called on timeout in ${jobTimeout}ms. job data: ${JSON.stringify(job.data)}`));
 								that.emit('job-late', job.name, { elapsed: jobTimeLapsed, timeout: jobTimeout  });
 								return;
 							}
