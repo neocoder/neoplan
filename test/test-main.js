@@ -24,6 +24,11 @@ J.on('error', function(err){
 	debug('[JOBS ERROR] '+err);
 });
 
+after(() => {
+	debug('ALL DONE. CLOSING JOBS CONNECTION')
+	J.close();
+})
+
 
 beforeEach(function(done){
 	J._clearJobProcessors();
@@ -67,12 +72,12 @@ describe('Testing jobs', function(){
 
 	it('should add a single scheduled job', function(testDone){
 
-		J.defineJob('test', function(data, done){
+		J.defineJob('test1', function(data, done){
 			done();
 			testDone();
 		});
 
-		J.schedule('in 1 seconds', 'test', { hello: 'world' });
+		J.schedule('in 1 seconds', 'test1', { hello: 'world' });
 
 		return true;
 	});
@@ -124,7 +129,7 @@ describe('Testing jobs', function(){
 			}
 		}
 
-		J.defineJob('test', function(data, done){
+		J.defineJob('test2', function(data, done){
 			debug('job %s executed at %s', data.hello, Date.now());
 			debug('test processed! hello %s ', data.hello);
 			x += 1;
@@ -132,16 +137,16 @@ describe('Testing jobs', function(){
 			check();
 		});
 
-		J.schedule('2 seconds', 'test', { hello: 'world 1' });
-		J.schedule('2 seconds', 'test', { hello: 'world 2' });
-		J.schedule('2 seconds', 'test', { hello: 'world 3' });
-		J.schedule('2 seconds', 'test', { hello: 'world 4' });
-		J.schedule('2 seconds', 'test', { hello: 'world 5' });
-		J.schedule('2 seconds', 'test', { hello: 'world 6' });
-		J.schedule('2 seconds', 'test', { hello: 'world 7' });
-		J.schedule('2 seconds', 'test', { hello: 'world 8' });
-		J.schedule('2 seconds', 'test', { hello: 'world 9' });
-		J.schedule('2 seconds', 'test', { hello: 'world 10' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 1' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 2' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 3' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 4' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 5' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 6' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 7' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 8' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 9' });
+		J.schedule('2 seconds', 'test2', { hello: 'world 10' });
 
 
 		return true;
@@ -153,7 +158,7 @@ describe('Testing jobs', function(){
 
 		function check() {
 			if ( x > 3 ) {
-				J.remove('test', { hello: 'world' });
+				J.remove('test3', { hello: 'world' });
 				setTimeout(function() {
 					expect(x).to.be.equal(4);
 					testDone();
@@ -162,14 +167,14 @@ describe('Testing jobs', function(){
 			}
 		}
 
-		J.defineJob('test', function(data, done){
+		J.defineJob('test3', function(data, done){
 			debug('running TEST job %s time', x);
 			x += 1;
 			done();
 			check();
 		});
 
-		J.every('1 seconds', 'test', { hello: 'world' });
+		J.every('1 seconds', 'test3', { hello: 'world' });
 
 		return true;
 	});
@@ -183,7 +188,7 @@ describe('Testing jobs', function(){
 			testDone();
 		}
 
-		J.defineJob('test', function(data, done){
+		J.defineJob('test4', function(data, done){
 			x += 1;
 			debug('running TEST job %s time', x);
 			done();
@@ -191,8 +196,8 @@ describe('Testing jobs', function(){
 			check();
 		});
 
-		J.schedule('in 1 seconds', 'test', { hello: 'world' }, function(){
-			J.schedule('in 3 seconds', 'test', { hello: 'world' }, function(){
+		J.schedule('in 1 seconds', 'test4', { hello: 'world' }, function(){
+			J.schedule('in 3 seconds', 'test4', { hello: 'world' }, function(){
 				t = setTimeout(check, 4000);
 			});
 		});
@@ -212,10 +217,12 @@ describe('Testing jobs', function(){
 			}
 		}
 
-		J.defineJob('test', function(data, done){
+		J.defineJob('test5', function(data, done){
 			x += 1;
 			if ( data.hello === 'FAIL' ) {
-				return done(new Error('FAIL'));
+				done(new Error('FAIL'));
+				check();
+				return;
 			}
 			debug('job %s executed at %s', data.hello, Date.now());
 			debug('test processed! hello %s ', data.hello);
@@ -223,16 +230,16 @@ describe('Testing jobs', function(){
 			check();
 		});
 
-		J.schedule('2 seconds', 'test', { hello: 'world 1' });
-		J.schedule('2 seconds', 'test', { hello: 'world 2' });
-		J.schedule('2 seconds', 'test', { hello: 'world 3' });
-		J.schedule('2 seconds', 'test', { hello: 'FAIL' });
-		J.schedule('2 seconds', 'test', { hello: 'world 5' });
-		J.schedule('2 seconds', 'test', { hello: 'world 6' });
-		J.schedule('2 seconds', 'test', { hello: 'world 7' });
-		J.schedule('2 seconds', 'test', { hello: 'world 8' });
-		J.schedule('2 seconds', 'test', { hello: 'world 9' });
-		J.schedule('2 seconds', 'test', { hello: 'world 10' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 1' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 2' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 3' });
+		J.schedule('2 seconds', 'test5', { hello: 'FAIL' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 5' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 6' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 7' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 8' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 9' });
+		J.schedule('2 seconds', 'test5', { hello: 'world 10' });
 
 		return true;
 
@@ -242,7 +249,7 @@ describe('Testing jobs', function(){
 	it('should continue processing after 1 job timed out', function(testDone){
 		this.timeout(45000);
 
-		J.defineJob('test', function(data, done){
+		J.defineJob('test6', function(data, done){
 			debug('Processing %s', data.x);
 
 			if ( data.x == 'TIMEOUT' ) { return; }
@@ -252,10 +259,10 @@ describe('Testing jobs', function(){
 			done();
 		});
 
-		J.schedule('2 seconds', 'test', { x: 'TIMEOUT' });
-		J.schedule('2 seconds', 'test', { x: 'SUN' });
-		J.schedule('2 seconds', 'test', { x: 'MERCURY' });
-		J.schedule('30 seconds', 'test', { x: 'VENUS' });
+		J.schedule('2 seconds', 'test6', { x: 'TIMEOUT' });
+		J.schedule('2 seconds', 'test6', { x: 'SUN' });
+		J.schedule('2 seconds', 'test6', { x: 'MERCURY' });
+		J.schedule('30 seconds', 'test6', { x: 'VENUS' });
 
 		return true;
 	});
@@ -263,35 +270,39 @@ describe('Testing jobs', function(){
 	it('should run job immidiately', function(testDone){
 		this.timeout(45000);
 
-		J.defineJob('test', function(data, done){
+		J.defineJob('test7', function(data, done){
+			done();
 			testDone();
 		});
 
-		J.now('test');
+		J.now('test7');
 
 		return true;
 	});
 
 	it('should adjust job timeout', function(testDone){
-		this.timeout(10000);
+		this.timeout(21000);
+
 		var jobTimeout = 5000;
 
-		J.once('job-late', function(jobName, data){
-			expect(data.timeout).to.be.equal(jobTimeout);
-			testDone();
+		J.on('job-late', function(jobName, data){
+			if (jobName === 'test-late') {
+				debug(`>>>>>>>>>> job-late data.timeout: ${data.timeout}, jobTimeout: ${jobTimeout}`);
+				expect(data.timeout).to.be.equal(jobTimeout);
+				debug('calling testDone();')
+				testDone();
+			}
 		});
 
-		J.defineJob('test', function(data, done){
-			setTimeout(function () {
+		J.defineJob('test-late', function(data, done){
+			setTimeout(() => {
 				done();
 			}, 7500);
 		}, { timeout: jobTimeout });
 
-		J.now('test');
+		J.now('test-late');
 
 		return true;
 	});
-
-	//*/
 
 });
