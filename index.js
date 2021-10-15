@@ -31,7 +31,7 @@ function Neoplan(opts) {
 		if ( this._ready ) {
 			cb();
 		} else {
-			this.on('ready', cb);
+			this.once('ready', cb);
 		}
 	};
 
@@ -62,6 +62,10 @@ jp._dropCollection = function(done) {
 
 jp._scanForJobs = function(err) {
 	var that = this;
+	if ( this._stop ) {
+		debug('Stopping scan loop. _stop flag raised');
+		return;
+	}
 
 	that.options.nextScanAt = new Date( Date.now() + that.options.scanInterval );
 	setTimeout(function(){
@@ -70,19 +74,27 @@ jp._scanForJobs = function(err) {
 }
 
 jp.connect = function(reconnect) {
-	var that = this;
-	debug('Connecting to '+that.options.url);
-	MongoClient.connect(that.options.url, function(err, db){
-		if ( err ) { throw err; /*return that.emit('error', err);*/ }
-
-		that._db = db;
-		that.col = db.collection(that.options.collection);
-		debug('Selecting collection: '+that.options.collection);
-		if ( !reconnect ) {
-			that._ready = true;
-			that.emit('ready');
+	debug('Connecting to '+this.options.url);
+	MongoClient.connect(this.options.url, (err, db) => {
+		if ( err ) {
+			if (err.message.includes('ECONNREFUSED')) {
+				const errCount = this.errCount ? this.errCount + 1 : 1;
+				setTimeout(() => {
+					this.connect();
+				}, errCount * 1000)
+				return;
+			}
+			return this.emit('error', err);
 		}
-		that._scanForJobs();
+
+		this._db = db;
+		this.col = db.collection(this.options.collection);
+		debug('Selecting collection: '+this.options.collection);
+		if ( !reconnect && !this._ready ) {
+			this._ready = true;
+			this.emit('ready');
+		}
+		this._scanForJobs();
 	});
 }
 
@@ -294,126 +306,128 @@ jp.lockAndGetNextBatch = function(done) {
 jp._processJobs = function(done) {
 	var that = this;
 
-	//ECONNREFUSED
-	//ECONNREFUSED
+	that.lockAndGetNextBatch(function(err, batch){
+		if ( err ) { return done(err); }
 
-	that.ready(function(){
-		that.lockAndGetNextBatch(function(err, batch){
-			if ( err ) { return done(err); }
+		debug('lockAndGetNextBatch %s', batch.length);
 
-			debug('lockAndGetNextBatch %s', batch.length);
+		if (batch && batch.length) {
+			async.each(batch, function(job, next){
 
-			if (batch && batch.length) {
-				async.each(batch, function(job, next){
+				if ( !that.jobProcessors[job.name] ) {
+					that.emit('error', new Error('Job with the name '+job.name+' does not have a processor.'));
+					return next();
+				}
 
-					if ( !that.jobProcessors[job.name] ) {
-						that.emit('error', new Error('Job with the name '+job.name+' does not have a processor.'));
-						return next();
+				var jobDoneCallback = function(err){
+					var lastError = '';
+					var ext = {
+						lastError: ''
+					};
+					if (err) {
+						lastError = 'Job error ['+job.name+']: '+err.message;
+						ext.lastError = lastError;
+						that.emit('error', new Error(lastError));
 					}
 
-					var jobDoneCallback = function(err){
-						var lastError = '';
-						var ext = {
-							lastError: ''
-						};
-						if (err) {
-							lastError = 'Job error ['+job.name+']: '+err.message;
-							ext.lastError = lastError;
-							that.emit('error', new Error(lastError));
-						}
+					// if recurring job
+					if ( job.interval ) {
+						debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
+						let nextRun = new Date(Date.now() + job.interval);
+						let errorCount = 0;
+						let inter = 5 * 60 * 1000;
 
-						// if recurring job
-						if ( job.interval ) {
-							debug('Re-Scheduling JOB !!!!!!!!!!!!!!!!');
-							let nextRun = new Date(Date.now() + job.interval);
-							let errorCount = 0;
-							let inter = 5 * 60 * 1000;
+						if (lastError) {
+							errorCount = job.errCounter ? job.errCounter + 1 : 1;
 
-							if (lastError) {
-								errorCount = job.errCounter ? job.errCounter + 1 : 1;
-
-								if (job.interval > inter) {
-									switch (errorCount) {
-										case 1:
-											nextRun = new Date(Date.now() + 5 * 60 * 1000);
-											break;
-										case 2:
-											nextRun = new Date(Date.now() + 15 * 60 * 1000);
-											break;
-										case 3:
-											nextRun = new Date(Date.now() + 30 * 60 * 1000);
-											break;
-										default:
-											nextRun = new Date(Date.now() + job.interval);
-									}
+							if (job.interval > inter) {
+								switch (errorCount) {
+									case 1:
+										nextRun = new Date(Date.now() + 5 * 60 * 1000);
+										break;
+									case 2:
+										nextRun = new Date(Date.now() + 15 * 60 * 1000);
+										break;
+									case 3:
+										nextRun = new Date(Date.now() + 30 * 60 * 1000);
+										break;
+									default:
+										nextRun = new Date(Date.now() + job.interval);
 								}
 							}
-
-							that.col.update({
-								_id: job._id
-							}, {
-								$set: _.extend({
-									status: 'scheduled',
-									nextRunAt: nextRun,
-									errCounter: errorCount,
-									lockedAt: null,
-									workerId: null
-								}, ext)
-							}, next);
-						} else {
-							that.col.update({
-								_id: job._id
-							}, {
-								$set: _.extend({ status: 'done', lockedAt: null }, ext)
-							}, next);
 						}
-					};
 
-					var jobOpts = Object.assign({
-						timeout: 20000 // 20 sec
-					}, that.jobProcessors[job.name].opts || {});
+						that.col.update({
+							_id: job._id
+						}, {
+							$set: _.extend({
+								status: 'scheduled',
+								nextRunAt: nextRun,
+								errCounter: errorCount,
+								lockedAt: null,
+								workerId: null
+							}, ext)
+						}, next);
+					} else {
+						that.col.update({
+							_id: job._id
+						}, {
+							$set: _.extend({ status: 'done', lockedAt: null }, ext)
+						}, next);
+					}
+				};
 
-					var jobTimeout = jobOpts.timeout;
-					var jobDoneCalled = false;
-					var jobStarted = Date.now();
+				const defaultJobOptions = {
+					timeout: 20000 // 20 sec
+				};
 
-					var jt = setTimeout(function () {
-						jobDoneCalled = true;
-						that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: ' + JSON.stringify(job.data)));
-						that.emit('timeout', job.name, job.data);
-						jobDoneCallback();
-					}, jobTimeout);
+				const namedJobOptions = that.jobProcessors[job.name].opts || {};
 
-					// try {
-						that.jobProcessors[job.name](job.data, function(err){
-							var jobTimeLapsed = Date.now()-jobStarted;
-							if ( jt ) { clearTimeout(jt); }
-							if ( jobDoneCalled ) {
-								that.emit('error', new Error(`Job error [${job.name}] (id: ${job._id}): Job took ${jobTimeLapsed}ms to run. But callback was called on timeout in ${jobTimeout}ms. job data: ${JSON.stringify(job.data)}`));
-								that.emit('job-late', job.name, { elapsed: jobTimeLapsed, timeout: jobTimeout  });
-								return;
-							}
-							jobDoneCallback(err);
-						});
-					// } catch(e) {
-					// 	jobDoneCallback(e);
-					// }
+				var jobOpts = Object.assign({}, defaultJobOptions, namedJobOptions);
+
+				var jobTimeout = jobOpts.timeout;
+				var jobDoneCalled = false;
+				var jobStarted = Date.now();
+
+				debug(`⌛️ Setting job ${job.name} timeout to ${jobTimeout}`);
+				var jt = setTimeout(function () {
+					jobDoneCalled = true;
+					that.emit('error', new Error('Job error ['+job.name+']: timeout. job data: ' + JSON.stringify(job.data)));
+					that.emit('timeout', job.name, job.data, jobTimeout);
+					jobDoneCallback();
+				}, jobTimeout);
+
+				debug(`🤖 Running job processor ${job.name}`);
+				// try {
+					that.jobProcessors[job.name](job.data, function(err){
+						var jobTimeLapsed = Date.now()-jobStarted;
+						if ( jt ) { clearTimeout(jt); }
+						if ( jobDoneCalled ) {
+							that.emit('error', new Error(`Job error [${job.name}] (id: ${job._id}): Job took ${jobTimeLapsed}ms to run. But callback was called on timeout in ${jobTimeout}ms. job data: ${JSON.stringify(job.data)}`));
+							that.emit('job-late', job.name, { elapsed: jobTimeLapsed, timeout: jobTimeout  });
+							return;
+						}
+						jobDoneCallback(err);
+					});
+				// } catch(e) {
+				// 	jobDoneCallback(e);
+				// }
 
 
-				}, function(err){
-					if ( err ) { that.emit('error', err); }
-					done(err);
-				});
-			} else {
-				done();
-			}
-		});
+			}, function(err){
+				if ( err ) { that.emit('error', err); }
+				done(err);
+			});
+		} else {
+			done();
+		}
 	});
 };
 
 jp.close = function() {
-	that.ready(function(){
-		that._db.close();
+	this.ready(() =>{
+		this._stop = true;
+		this._db.close();
 	});
 };
 
