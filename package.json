@@ -1,6 +1,6 @@
 {
   "name": "neoplan",
-  "version": "0.0.3",
+  "version": "1.0.0",
   "description": "Lightweight MongoDB based Node.js job scheduler",
   "main": "index.js",
   "scripts": {
