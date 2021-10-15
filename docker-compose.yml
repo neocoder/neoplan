@@ -1,0 +1,36 @@
+version: '3.1'
+services:
+    neoplan:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            - .:/srv/test
+            - data-node_modules:/srv/test/node_modules/
+        depends_on:
+            - testmongo
+        environment:
+            # - DEBUG=neoplan
+            - MONGOPATH=mongodb://nptest:nptest@testmongo/testdb
+        tty: true
+        mem_limit: 6000m
+        mem_reservation: 500m
+    testmongo:
+        image: mongo
+        restart: always
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: nptest
+            MONGO_INITDB_ROOT_PASSWORD: nptest
+            MONGO_INITDB_DATABASE: testdb
+        volumes:
+            - ./scripts/10-init-dev-db.js:/docker-entrypoint-initdb.d/10-init-dev-db.js
+            - data-mongodb:/data/db
+        ports:
+            - 27017:27017
+        command: mongod --quiet --logpath /dev/null
+
+volumes:
+    data-mongodb:
+        driver: local
+    data-node_modules:
+        driver: local
