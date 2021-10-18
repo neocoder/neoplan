@@ -27,6 +27,8 @@ function Neoplan(opts) {
 		nextScanAt: new Date(Date.now() + 5000) // in 5 seconds
 	}, opts || {});
 
+	this.dbName = new URL(this.options.url).pathname.replace(/^\//g,'');
+
 	this.ready = function(cb) {
 		if ( this._ready ) {
 			cb();
@@ -75,7 +77,7 @@ jp._scanForJobs = function(err) {
 
 jp.connect = function(reconnect) {
 	debug('Connecting to '+this.options.url);
-	MongoClient.connect(this.options.url, (err, db) => {
+	MongoClient.connect(this.options.url, (err, conn) => {
 		if ( err ) {
 			if (err.message.includes('ECONNREFUSED')) {
 				const errCount = this.errCount ? this.errCount + 1 : 1;
@@ -87,8 +89,9 @@ jp.connect = function(reconnect) {
 			return this.emit('error', err);
 		}
 
-		this._db = db;
-		this.col = db.collection(this.options.collection);
+		this._conn = conn;
+		this._db = conn.db(this.dbName);
+		this.col = this._db.collection(this.options.collection);
 		debug('Selecting collection: '+this.options.collection);
 		if ( !reconnect && !this._ready ) {
 			this._ready = true;
@@ -427,7 +430,7 @@ jp._processJobs = function(done) {
 jp.close = function() {
 	this.ready(() =>{
 		this._stop = true;
-		this._db.close();
+		this._conn.close();
 	});
 };
 
