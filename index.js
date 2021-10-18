@@ -132,7 +132,6 @@ jp.schedule = function(time, jobName, data, done) {
 			} else if ( _.isNumber(time) ) {
 				nextRun = new Date(Date.now() + time);
 			} else if ( _.isDate(time) ) {
-				// TODO: add
 				nextRun = time;
 			} else {
 				throw new Error('[Neoplan.schedule] wrong time argument %s', time);
@@ -140,7 +139,7 @@ jp.schedule = function(time, jobName, data, done) {
 
 			debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
 
-			that.col.insert({
+			that.col.insertOne({
 				name: jobName,
 				data: data,
 
@@ -148,7 +147,6 @@ jp.schedule = function(time, jobName, data, done) {
 
 				nextRunAt: nextRun
 			}, function(err){
-				//TODO: test the done function call on err and success
 				if ( err ) { that.emit('error', err); }
 				return done(err);
 			});
@@ -171,7 +169,7 @@ jp.now = function(jobName, data, done) {
 
 			debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
 
-			that.col.insert({
+			that.col.insertOne({
 				name: jobName,
 				data: data,
 
@@ -210,7 +208,7 @@ jp.every = function(time, jobName, data, opts, done) {
 
 			debug('scheduling %s for %s ( %s )', jobName, nextRun, nextRun.getTime());
 
-			that.col.insert({
+			that.col.insertOne({
 				name: jobName,
 				data: data,
 
@@ -233,7 +231,7 @@ jp.remove = function(jobName, dataMatcher, done) {
 	dataMatcher = dataMatcher || {};
 
 	that.ready(function(){
-		that.col.remove({
+		that.col.deleteOne({
 			name: jobName,
 			data: dataMatcher
 		}, done);
@@ -251,7 +249,7 @@ jp.lockAndGetNextJob = function(done) {
 
 		var availableProcessors = Object.getOwnPropertyNames(that.jobProcessors);
 
-		that.col.findAndModify({
+		that.col.findOneAndUpdate({
 			nextRunAt: { $lte: that.options.nextScanAt },
 
 			$or: [
@@ -264,7 +262,6 @@ jp.lockAndGetNextJob = function(done) {
 
 			name: { $in: availableProcessors }
 		},
-		{ /* sorting params */ },
 		{
 			$set: {
 				lockedAt: now,
@@ -272,7 +269,7 @@ jp.lockAndGetNextJob = function(done) {
 				status: 'processing'
 			}
 		},
-		{ 'new': true },
+		{ returnDocument: 'after' },
 		function(err, res){
 			if ( err ) { return done(err); }
 			done(null, res.value);
@@ -360,7 +357,7 @@ jp._processJobs = function(done) {
 							}
 						}
 
-						that.col.update({
+						that.col.updateOne({
 							_id: job._id
 						}, {
 							$set: _.extend({
@@ -372,7 +369,7 @@ jp._processJobs = function(done) {
 							}, ext)
 						}, next);
 					} else {
-						that.col.update({
+						that.col.updateOne({
 							_id: job._id
 						}, {
 							$set: _.extend({ status: 'done', lockedAt: null }, ext)
@@ -430,6 +427,7 @@ jp._processJobs = function(done) {
 jp.close = function() {
 	this.ready(() =>{
 		this._stop = true;
+		this._ready = false;
 		this._conn.close();
 	});
 };

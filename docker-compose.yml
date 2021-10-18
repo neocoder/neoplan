@@ -15,6 +15,7 @@ services:
         tty: true
         mem_limit: 6000m
         mem_reservation: 500m
+
     testmongo:
         image: mongo
         restart: always
