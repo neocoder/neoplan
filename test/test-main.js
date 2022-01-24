@@ -13,7 +13,7 @@ it = function(){};
 
 /**
  * scanInterval is defined in this test to make them run faster.
- * Usuallay you should not change this value
+ * Usually you should not change this value
  */
 
 var mongoPath = process.env.MONGOPATH || 'mongodb://localhost:27017/neoplan';
@@ -26,6 +26,9 @@ J.on('error', function(err){
 
 after(() => {
 	debug('ALL DONE. CLOSING JOBS CONNECTION')
+	if ( !J._ready ) {
+		debug('Jobs processor is not in ready state');
+	}
 	J.close();
 })
 
@@ -33,6 +36,7 @@ after(() => {
 beforeEach(function(done){
 	J._clearJobProcessors();
 	J._dropCollection(done);
+
 })
 
 describe('Testing jobs', function(){
@@ -267,7 +271,7 @@ describe('Testing jobs', function(){
 		return true;
 	});
 
-	it('should run job immidiately', function(testDone){
+	it('should run job immediately', function(testDone){
 		this.timeout(45000);
 
 		J.defineJob('test7', function(data, done){

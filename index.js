@@ -24,7 +24,8 @@ function Neoplan(opts) {
 		lockLifetime: 10 * 60 * 1000, //10 minute default lockLifetime
 		concurrency: 10, // Process n jobs at a time ( lock & get )
 		scanInterval: 2000, // 2 sec
-		nextScanAt: new Date(Date.now() + 5000) // in 5 seconds
+		nextScanAt: null, // job processor is not started
+		processJobs: true, // if false, current instance will not process jobs, only manage
 	}, opts || {});
 
 	this.dbName = new URL(this.options.url).pathname.replace(/^\//g,'');
@@ -66,11 +67,12 @@ jp._scanForJobs = function(err) {
 	var that = this;
 	if ( this._stop ) {
 		debug('Stopping scan loop. _stop flag raised');
+		that.options.nextScanAt = null;
 		return;
 	}
 
 	that.options.nextScanAt = new Date( Date.now() + that.options.scanInterval );
-	setTimeout(function(){
+	this._scanTimeout = setTimeout(function(){
 		that._processJobs(that._scanForJobs.bind(that));
 	}, that.options.scanInterval);
 }
@@ -97,9 +99,29 @@ jp.connect = function(reconnect) {
 			this._ready = true;
 			this.emit('ready');
 		}
-		this._scanForJobs();
+		if (this.options.processJobs) {
+			this._scanForJobs();
+		}
 	});
 }
+
+jp.startJobsProcessing = function() {
+	this._stop = false;
+	if ( this.options.nextScanAt ) {
+		debug('Jobs processing already running');
+		return;
+	}
+
+	this._scanForJobs();
+};
+
+jp.stopJobsProcessing = function() {
+	this._stop = true;
+	this.options.nextScanAt = null;
+	if ( this._scanTimeout ) {
+		clearTimeout(this._scanTimeout);
+	}
+};
 
 jp.defineJob = function(jobName, processor, opts = {}) {
 	var that = this;
@@ -290,7 +312,7 @@ jp.lockAndGetNextBatch = function(done) {
 					batch.push(job);
 				}
 
-				// if no more jobs or reached concurrecy limit
+				// if no more jobs or reached concurrency limit
 				if ( !job || batch.length == that.options.concurrency ) {
 					done(null, batch);
 				} else {
