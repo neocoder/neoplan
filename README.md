@@ -12,13 +12,19 @@ Install via NPM
 
 You will also need a working [mongo](http://www.mongodb.org/) database (2.4+) to point it to.
 
+# Changes
+
+    - v1.1.1 - Breaking change. .connect() method needs to be called after instance creation.
+
 # Example Usage
 
 ```js
-var neoplan = new Neoplan({db: { address: 'localhost:27017/neoplan-example'}});
+var neoplan = new Neoplan({ db: { address: 'localhost:27017/neoplan-example' } });
 
-neoplan.define('delete old users', function(data, done) {
-  User.remove({lastLogIn: { $lt: twoDaysAgo }}, done);
+neoplan.connect();
+
+neoplan.define('delete old users', function (data, done) {
+    User.remove({ lastLogIn: { $lt: twoDaysAgo } }, done);
 });
 
 neoplan.every('3 minutes', 'delete old users');
@@ -26,29 +32,30 @@ neoplan.every('3 minutes', 'delete old users');
 // Alternatively, you could also do:
 
 neoplan.every('*/3 * * * *', 'delete old users');
-
-neoplan.start();
 ```
 
 ```js
-neoplan.define('send email report', {priority: 'high', concurrency: 10}, function(job, done) {
-  var data = job.attrs.data;
-  emailClient.send({
-    to: data.to,
-    from: 'example@example.com',
-    subject: 'Email Report',
-    body: '...'
-  }, done);
+neoplan.define('send email report', { priority: 'high', concurrency: 10 }, function (job, done) {
+    var data = job.attrs.data;
+    emailClient.send(
+        {
+            to: data.to,
+            from: 'example@example.com',
+            subject: 'Email Report',
+            body: '...',
+        },
+        done,
+    );
 });
 
-neoplan.schedule('in 20 minutes', 'send email report', {to: 'admin@example.com'});
-neoplan.start();
+neoplan.schedule('in 20 minutes', 'send email report', { to: 'admin@example.com' });
 ```
 
 ```js
-var weeklyReport = neoplan.schedule('Saturday at noon', 'send email report', {to: 'another-guy@example.com'});
+var weeklyReport = neoplan.schedule('Saturday at noon', 'send email report', {
+    to: 'another-guy@example.com',
+});
 weeklyReport.repeatEvery('1 week').save();
-neoplan.start();
 ```
 
 # Full documentation
@@ -57,17 +64,19 @@ Neoplan's basic control structure is an instance of an neoplan. Neoplan's are
 mapped to a database collection and load the jobs from within.
 
 ## Table of Contents
-- [Configuring an neoplan](#configuring-an-neoplan)
-- [Defining job processors](#defining-job-processors)
-- [Creating jobs](#creating-jobs)
-- [Managing jobs](#managing-jobs)
-- [Starting the job processor](#starting-the-job-processor)
-- [Multiple job processors](#multiple-job-processors)
-- [Manually working with jobs](#manually-working-with-a-job)
-- [Job Queue Events](#job-queue-events)
-- [Frequently asked questions](#frequently-asked-questions)
+
+-   [Configuring an neoplan](#configuring-an-neoplan)
+-   [Defining job processors](#defining-job-processors)
+-   [Creating jobs](#creating-jobs)
+-   [Managing jobs](#managing-jobs)
+-   [Starting the job processor](#starting-the-job-processor)
+-   [Multiple job processors](#multiple-job-processors)
+-   [Manually working with jobs](#manually-working-with-a-job)
+-   [Job Queue Events](#job-queue-events)
+-   [Frequently asked questions](#frequently-asked-questions)
 
 ## Configuring an neoplan
+
 All configuration methods are chainable, meaning you can do something like:
 
 ```js
@@ -77,7 +86,6 @@ neoplan
   .processEvery('3 minutes')
   ...;
 ```
-
 
 ### database(url, [collectionName])
 
@@ -91,7 +99,7 @@ neoplan.database('localhost:27017/neoplan-test', 'jobs');
 You can also specify it during instantiation.
 
 ```js
-var neoplan = new Neoplan({db: { address: 'localhost:27017/neoplan-test', collection: 'jobs' }});
+var neoplan = new Neoplan({ db: { address: 'localhost:27017/neoplan-test', collection: 'jobs' } });
 ```
 
 ### mongo(mongoSkinInstance)
@@ -103,7 +111,7 @@ you.
 You can also specify it during instantiation.
 
 ```js
-var neoplan = new Neoplan({mongo: mongoSkinInstance});
+var neoplan = new Neoplan({ mongo: mongoSkinInstance });
 ```
 
 ### name(name)
@@ -119,7 +127,7 @@ neoplan.name(os.hostname + '-' + process.pid);
 You can also specify it during instantiation
 
 ```js
-var neoplan = new Neoplan({name: 'test queue'});
+var neoplan = new Neoplan({ name: 'test queue' });
 ```
 
 ### processEvery(interval)
@@ -145,7 +153,7 @@ neoplan.processEvery('1 minute');
 You can also specify it during instantiation
 
 ```js
-var neoplan = new Neoplan({processEvery: '30 seconds'});
+var neoplan = new Neoplan({ processEvery: '30 seconds' });
 ```
 
 ### maxConcurrency(number)
@@ -160,7 +168,7 @@ neoplan.maxConcurrency(20);
 You can also specify it during instantiation
 
 ```js
-var neoplan = new Neoplan({maxConcurrency: 20});
+var neoplan = new Neoplan({ maxConcurrency: 20 });
 ```
 
 ### defaultConcurrency(number)
@@ -175,7 +183,7 @@ neoplan.defaultConcurrency(5);
 You can also specify it during instantiation
 
 ```js
-var neoplan = new Neoplan({defaultConcurrency: 5});
+var neoplan = new Neoplan({ defaultConcurrency: 5 });
 ```
 
 ### defaultLockLifetime(number)
@@ -194,7 +202,7 @@ neoplan.defaultLockLifetime(10000);
 You can also specify it during instantiation
 
 ```js
-var neoplan = new Neoplan({defaultLockLifetime: 10000});
+var neoplan = new Neoplan({ defaultLockLifetime: 10000 });
 ```
 
 ## Defining Job Processors
@@ -211,14 +219,15 @@ you may omit `done` from the signature.
 `options` is an optional argument which can overwrite the defaults. It can take
 the following:
 
-- `concurrency`: `number` maxinum number of that job that can be running at once (per instance of neoplan)
-- `lockLifetime`: `number` interval in ms of how long the job stays locked for (see [multiple job processors](#multiple-job-processors) for more info).
-A job will automatically unlock if `done()` is called.
-- `priority`: `(lowest|low|normal|high|highest|number)` specifies the priority
-  of the job. Higher priority jobs will run first. See the priority mapping
-  below
+-   `concurrency`: `number` maxinum number of that job that can be running at once (per instance of neoplan)
+-   `lockLifetime`: `number` interval in ms of how long the job stays locked for (see [multiple job processors](#multiple-job-processors) for more info).
+    A job will automatically unlock if `done()` is called.
+-   `priority`: `(lowest|low|normal|high|highest|number)` specifies the priority
+    of the job. Higher priority jobs will run first. See the priority mapping
+    below
 
 Priority mapping:
+
 ```
 {
   highest: 20,
@@ -230,21 +239,22 @@ Priority mapping:
 ```
 
 Async Job:
+
 ```js
-neoplan.define('some long running job', function(job, done) {
-  doSomelengthyTask(function(data) {
-    formatThatData(data);
-    sendThatData(data);
-    done();
-  });
+neoplan.define('some long running job', function (job, done) {
+    doSomelengthyTask(function (data) {
+        formatThatData(data);
+        sendThatData(data);
+        done();
+    });
 });
 ```
 
 Sync Job:
 
 ```js
-neoplan.define('say hello', function(job) {
-  console.log("Hello!");
+neoplan.define('say hello', function (job) {
+    console.log('Hello!');
 });
 ```
 
@@ -266,12 +276,12 @@ under `job.attrs.data`.
 Returns the `job`.
 
 ```js
-neoplan.define('printAnalyticsReport', function(job, done) {
-  User.doSomethingReallyIntensive(function(err, users) {
-    processUserData();
-    console.log("I print a report!");
-    done();
-  });
+neoplan.define('printAnalyticsReport', function (job, done) {
+    User.doSomethingReallyIntensive(function (err, users) {
+        processUserData();
+        console.log('I print a report!');
+        done();
+    });
 });
 
 neoplan.every('15 minutes', 'printAnalyticsReport');
@@ -297,13 +307,17 @@ under `job.data`.
 Returns the `job`.
 
 ```js
-neoplan.schedule('tomorrow at noon', 'printAnalyticsReport', {userCount: 100});
+neoplan.schedule('tomorrow at noon', 'printAnalyticsReport', { userCount: 100 });
 ```
 
 Optionally, `name` could be array of job names, similar to `every` method.
 
 ```js
-neoplan.schedule('tomorrow at noon', ['printAnalyticsReport', 'sendNotifications', 'updateUserRecords']);
+neoplan.schedule('tomorrow at noon', [
+    'printAnalyticsReport',
+    'sendNotifications',
+    'updateUserRecords',
+]);
 ```
 
 In this case, `schedule` returns array of `jobs`.
@@ -323,18 +337,17 @@ neoplan.now('do the hokey pokey');
 
 ### create(jobName, data)
 
-Returns an instance of a `jobName` with `data`. This does *NOT* save the job in
+Returns an instance of a `jobName` with `data`. This does _NOT_ save the job in
 the database. See below to learn how to manually work with jobs.
 
 ```js
-var job = neoplan.create('printAnalyticsReport', {userCount: 100});
-job.save(function(err) {
-  console.log("Job successfully saved");
+var job = neoplan.create('printAnalyticsReport', { userCount: 100 });
+job.save(function (err) {
+    console.log('Job successfully saved');
 });
 ```
 
 ## Managing Jobs
-
 
 ### jobs(mongoskin query)
 
@@ -342,8 +355,8 @@ Lets you query all of the jobs in the neoplan job's database. This is a full [mo
 `find` query. See mongoskin's documentation for details.
 
 ```js
-neoplan.jobs({name: 'printAnalyticsReport'}, function(err, jobs) {
-  // Work with jobs (see below)
+neoplan.jobs({ name: 'printAnalyticsReport' }, function (err, jobs) {
+    // Work with jobs (see below)
 });
 ```
 
@@ -352,8 +365,7 @@ neoplan.jobs({name: 'printAnalyticsReport'}, function(err, jobs) {
 Cancels any jobs matching the passed mongoskin query, and removes them from the database.
 
 ```js
-neoplan.cancel({name: 'printAnalyticsReport'}, function(err, numRemoved) {
-});
+neoplan.cancel({ name: 'printAnalyticsReport' }, function (err, numRemoved) {});
 ```
 
 This functionality can also be achieved by first retrieving all the jobs from the database using `neoplan.jobs()`, looping through the resulting array and calling `job.remove()` on each. It is however preferable to use `neoplan.cancel()` for this use case, as this ensures the operation is atomic.
@@ -362,11 +374,10 @@ This functionality can also be achieved by first retrieving all the jobs from th
 
 Removes all jobs in the database without defined behaviors. Useful if you change a definition name and want to remove old jobs.
 
-*IMPORTANT:* Do not run this before you finish defining all of your jobs. If you do, you will nuke your database of jobs.
+_IMPORTANT:_ Do not run this before you finish defining all of your jobs. If you do, you will nuke your database of jobs.
 
 ```js
-neoplan.purge(function(err, numRemoved) {
-});
+neoplan.purge(function (err, numRemoved) {});
 ```
 
 ## Starting the job processor
@@ -390,15 +401,14 @@ shutdown.
 
 ```js
 function graceful() {
-  neoplan.stop(function() {
-    process.exit(0);
-  });
+    neoplan.stop(function () {
+        process.exit(0);
+    });
 }
 
 process.on('SIGTERM', graceful);
-process.on('SIGINT' , graceful);
+process.on('SIGINT', graceful);
 ```
-
 
 ## Multiple job processors
 
@@ -410,8 +420,8 @@ You can configure the locking mechanism by specifying `lockLifetime` as an
 interval when defining the job.
 
 ```js
-neoplan.define('someJob', {lockLifetime: 10000}, function(job, cb) {
-  //Do something in 10 seconds or less...
+neoplan.define('someJob', { lockLifetime: 10000 }, function (job, cb) {
+    //Do something in 10 seconds or less...
 });
 ```
 
@@ -428,7 +438,6 @@ When a job is finished (ie. `done` is called), it will automatically unlock.
 
 A job instance has many instance methods. All mutating methods must be followed
 with a call to `job.save()` in order to persist the changes to the database.
-
 
 ### repeatEvery(interval)
 
@@ -481,8 +490,8 @@ Runs the given `job` and calls `callback(err, job)` upon completion. Normally
 you never need to call this manually.
 
 ```js
-job.run(function(err, job) {
-  console.log("I don't know why you would need to do this...");
+job.run(function (err, job) {
+    console.log("I don't know why you would need to do this...");
 });
 ```
 
@@ -491,9 +500,9 @@ job.run(function(err, job) {
 Saves the `job.attrs` into the database.
 
 ```js
-job.save(function(err) {
-    if(!err) console.log("Successfully saved job to collection");
-})
+job.save(function (err) {
+    if (!err) console.log('Successfully saved job to collection');
+});
 ```
 
 ### remove(callback)
@@ -501,9 +510,9 @@ job.save(function(err) {
 Removes the `job` from the database.
 
 ```js
-job.remove(function(err) {
-    if(!err) console.log("Successfully removed job from collection");
-})
+job.remove(function (err) {
+    if (!err) console.log('Successfully removed job from collection');
+});
 ```
 
 ### touch(callback)
@@ -512,16 +521,16 @@ Resets the lock on the job. Useful to indicate that the job hasn't timed out
 when you have very long running jobs.
 
 ```js
-neoplan.define('super long job', function(job, done) {
-  doSomeLongTask(function() {
-    job.touch(function() {
-      doAnotherLongTask(function() {
-        job.touch(function() {
-          finishOurLongTasks(done);
+neoplan.define('super long job', function (job, done) {
+    doSomeLongTask(function () {
+        job.touch(function () {
+            doAnotherLongTask(function () {
+                job.touch(function () {
+                    finishOurLongTasks(done);
+                });
+            });
         });
-      });
     });
-  });
 });
 ```
 
@@ -529,44 +538,43 @@ neoplan.define('super long job', function(job, done) {
 
 An instance of an neoplan will emit the following events:
 
-- `start` - called just before a job starts
-- `start:job name` - called just before the specified job starts
+-   `start` - called just before a job starts
+-   `start:job name` - called just before the specified job starts
 
 ```js
-neoplan.on('start', function(job) {
-  console.log("Job %s starting", job.attrs.name);
+neoplan.on('start', function (job) {
+    console.log('Job %s starting', job.attrs.name);
 });
 ```
 
-- `complete` - called when a job finishes, regardless of if it succeeds or fails
-- `complete:job name` - called when a job finishes, regardless of if it succeeds or fails
+-   `complete` - called when a job finishes, regardless of if it succeeds or fails
+-   `complete:job name` - called when a job finishes, regardless of if it succeeds or fails
 
 ```js
-neoplan.on('complete', function(job) {
-  console.log("Job %s finished", job.attrs.name);
+neoplan.on('complete', function (job) {
+    console.log('Job %s finished', job.attrs.name);
 });
 ```
 
-- `success` - called when a job finishes successfully
-- `success:job name` - called when a job finishes successfully
+-   `success` - called when a job finishes successfully
+-   `success:job name` - called when a job finishes successfully
 
 ```js
-neoplan.once('success:send email', function(job) {
-  console.log("Sent Email Successfully to: %s", job.attrs.data.to);
+neoplan.once('success:send email', function (job) {
+    console.log('Sent Email Successfully to: %s', job.attrs.data.to);
 });
 ```
 
-- `fail` - called when a job throws an error
-- `fail:job name` - called when a job throws an error
+-   `fail` - called when a job throws an error
+-   `fail:job name` - called when a job throws an error
 
 ```js
-neoplan.on('fail:send email', function(err, job) {
-  console.log("Job failed with error: %s", err.message);
+neoplan.on('fail:send email', function (err, job) {
+    console.log('Job failed with error: %s', err.message);
 });
 ```
 
 ## Frequently Asked Questions
-
 
 ### Web Interface?
 
@@ -602,7 +610,6 @@ var cluster = require('cluster'),
     webWorkers = [];
 
 if (cluster.isMaster) {
-
     // Create a worker for each CPU
     for (var i = 0; i < cpuCount; i += 1) {
         addJobWorker();
@@ -610,7 +617,6 @@ if (cluster.isMaster) {
     }
 
     cluster.on('exit', function (worker, code, signal) {
-
         if (jobWorkers.indexOf(worker.id) != -1) {
             console.log('job worker ' + worker.process.pid + ' died. Trying to respawn...');
             removeJobWorker(worker.id);
@@ -623,25 +629,24 @@ if (cluster.isMaster) {
             addWebWorker();
         }
     });
-
 } else {
     if (process.env.web) {
         console.log('start http server: ' + cluster.worker.id);
-        require('./app/web-http');//initialize the http server here
+        require('./app/web-http'); //initialize the http server here
     }
 
     if (process.env.job) {
         console.log('start job server: ' + cluster.worker.id);
-        require('./app/job-worker');//initialize the neoplan here
+        require('./app/job-worker'); //initialize the neoplan here
     }
 }
 
 function addWebWorker() {
-    webWorkers.push(cluster.fork({web: 1}).id);
+    webWorkers.push(cluster.fork({ web: 1 }).id);
 }
 
 function addJobWorker() {
-    jobWorkers.push(cluster.fork({job: 1}).id);
+    jobWorkers.push(cluster.fork({ job: 1 }).id);
 }
 
 function removeWebWorker(id) {
@@ -653,9 +658,8 @@ function removeJobWorker(id) {
 }
 ```
 
-
-
 # License
+
 (The MIT License)
 
 Copyright (c) 2013 Ryan Schmukler <ryan@slingingcode.com>

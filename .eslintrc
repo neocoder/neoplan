@@ -1,0 +1,62 @@
+{
+    "env": {
+        "node": true,
+        "es6": true,
+        "mocha": true
+    },
+    "plugins": ["prettier"],
+    "extends": ["airbnb-base", "prettier"],
+    "rules": {
+		"max-classes-per-file": 0,
+		"react/prop-types": "off",
+        "prettier/prettier": "error",
+        "import/no-unresolved": "off",
+        "arrow-body-style": ["error", "as-needed"],
+        "linebreak-style": "off",
+        "key-spacing": "off",
+        "no-unused-expressions": [
+            "error",
+            {
+                "allowShortCircuit": true,
+                "allowTernary": true,
+                "allowTaggedTemplates": true
+            }
+        ],
+
+        "no-plusplus": "off",
+        "new-cap": "off",
+        "import/no-extraneous-dependencies": "off",
+        "import/prefer-default-export": "off",
+        "no-underscore-dangle": "off",
+        "class-methods-use-this": "off",
+        "object-shorthand": [
+            "error",
+            "always",
+            {
+                "avoidQuotes": false
+            }
+        ],
+        "camelcase": "warn",
+        "no-console": "off",
+        "no-param-reassign": "off",
+		"no-use-before-define": [
+			"error",
+			{
+			  "functions": false,
+			  "classes": true,
+			  "variables": true
+			}
+		  ],
+		  "no-unused-vars": [
+			"error",
+			{
+			  "vars": "all",
+			  "args": "after-used",
+			  "ignoreRestSiblings": true,
+			  "argsIgnorePattern": "^_"
+			}
+		  ],
+		"no-shadow": "off",
+		"consistent-return": "off"
+    }
+}

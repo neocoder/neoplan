@@ -10,7 +10,7 @@ services:
         depends_on:
             - testmongo
         environment:
-            # - DEBUG=neoplan
+            - DEBUG=neoplan
             - MONGOPATH=mongodb://nptest:nptest@testmongo/testdb
         tty: true
         mem_limit: 6000m
