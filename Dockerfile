@@ -21,4 +21,4 @@ USER test
 ENV HUSKY_SKIP_INSTALL=1
 RUN npm install
 
-ENTRYPOINT [ "npm", "test" ]
+ENTRYPOINT [ "npm", "run", "build_n_test" ]

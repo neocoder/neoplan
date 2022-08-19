@@ -1,8 +1,16 @@
-const { MongoClient } = require('mongodb');
-const humanInterval = require('human-interval');
-const EventEmitter = require('events');
-const debug = require('debug')('neoplan');
-const async = require('async');
+import mongoose, { Model, model, Types } from 'mongoose';
+
+import humanInterval from 'human-interval';
+import EventEmitter from 'events';
+import createDebug from 'debug';
+import async from 'async';
+
+import { Options, Job, Processor, timestamp } from './types';
+
+import getSchema, { IJob } from './jobSchema';
+import { DeleteResult } from 'mongodb';
+
+const debug = createDebug('neoplan');
 
 const TASK_STATUS_PROCESSING = 'processing';
 const TASK_STATUS_DONE = 'done';
@@ -13,11 +21,22 @@ const EV_ERROR = 'error';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-const isString = (s) => typeof s === 'string';
-const isNumber = (n) => typeof n === 'number' && !Number.isNaN(n);
-const isDate = (d) => d instanceof Date && !Number.isNaN(d.valueOf());
+const isString = (s: any) => typeof s === 'string';
+const isNumber = (n: any) => typeof n === 'number' && !Number.isNaN(n);
+const isDate = (d: any) => d instanceof Date && !Number.isNaN(d.valueOf());
+
+const MODEL_CACHE = new Map<string, Model<IJob>>();
+
 class Neoplan extends EventEmitter {
-    constructor(opts = {}) {
+    options: Options;
+    _scanTimeout: NodeJS.Timeout;
+    _stop: boolean;
+    dbName: string;
+    jobProcessors: Array<Job> = [];
+    client: any;
+    Job: Model<IJob>;
+
+    constructor(opts: Options = {}) {
         super();
 
         this.options = {
@@ -32,41 +51,53 @@ class Neoplan extends EventEmitter {
             ...opts,
         };
 
+        if (MODEL_CACHE.has(this.options.collection)) {
+            this.Job = MODEL_CACHE.get(this.options.collection);
+        } else {
+            this.Job = model<IJob>('Job', getSchema(this.options.collection));
+            MODEL_CACHE.set(this.options.collection, this.Job);
+        }
+
         this.dbName = new URL(this.options.url).pathname.replace(/^\//g, '');
-        this.jobProcessors = {};
-        this.client = new MongoClient(this.options.url);
     }
 
     async connect() {
-        const conn = await this.client.connect();
+        const conn = mongoose.connect(this.options.url);
 
-        this._conn = conn;
-        this._db = conn.db(this.dbName);
-        this.col = this._db.collection(this.options.collection);
-        debug(`Selecting collection: ${this.options.collection}`);
-        if (this.options.processJobs) {
-            this._scanForJobs();
-        }
+        conn.then(() => {
+            debug(`::.:: Connected to DB ${this.options.url}!`);
+            if (this.options.processJobs) {
+                this._scanForJobs();
+            }
+        });
+
         return conn;
     }
 
     _clearJobProcessors() {
-        this.jobProcessors = {};
+        this.jobProcessors = [];
     }
 
     async _dropCollection() {
-        const collections = await this._db.collections();
-        const collectionNames = collections.map((col) => col.collectionName);
+        debug(`dropping ${this.options.collection} collection`);
 
-        if (collectionNames.includes(this.options.collection)) {
-            debug('dropping jobs collection');
-            return this.col.drop();
+        let list = await this.Job.db.db
+            .listCollections({
+                name: this.Job.collection.name,
+            })
+            .toArray();
+
+        if (list.length !== 0) {
+            return this.Job.collection.drop().then(() => {
+                debug(`collection dropped`);
+            });
+        } else {
+            debug(`collection ${this.Job.collection.name} does not exist`);
         }
-        return Promise.resolve();
     }
 
-    async _getJob(jobId) {
-        return this.col.findOne({ _id: jobId });
+    async _getJob(jobId: Types.ObjectId) {
+        return this.Job.findOne({ _id: jobId });
     }
 
     _scanForJobs() {
@@ -102,54 +133,68 @@ class Neoplan extends EventEmitter {
         }
     }
 
-    defineJob(jobName, processor, opts = {}) {
-        if (this.jobProcessors[jobName]) {
-            throw new Error(`Job processor with the name ${jobName} already exists.`);
+    defineJob(name: string, processor: Processor, opts: any = {}) {
+        const exists = this.jobProcessors.find((j) => j.name === name);
+        if (exists) {
+            throw new Error(`Job processor with the name ${name} already exists.`);
         } else {
-            this.jobProcessors[jobName] = processor;
+            debug(`Job definition ${name} is added`);
+            this.jobProcessors.push({
+                name,
+                processor,
+                opts,
+            });
         }
-        this.jobProcessors[jobName].opts = opts;
+    }
+
+    getJobDefinition(name: string): null | Job {
+        return this.jobProcessors.find((j) => j.name === name);
     }
 
     /**
      * Create job record
      * @param {Date} time time to run the job
-     * @param {String} jobName job name
+     * @param {String} name job name
      * @param {Object} data job data
      */
-    async createJobRecord(time, jobName, data = {}, intervalStr = null, interval = null) {
+    async createJobRecord(
+        time: Date,
+        name: string,
+        data: any = {},
+        intervalStr: string = null,
+        interval: number = null,
+    ) {
         if (!isDate(time)) {
             throw new Error('Wrong time parameter type. Must be Date');
         }
 
-        const ivProps =
-            intervalStr && interval
-                ? {
-                      intervalStr,
-                      interval,
-                  }
-                : {};
+        await this.removeDoneOrScheduled(name, data);
+        await this.removeDead(name, data);
 
-        await this.removeDoneOrScheduled(jobName, data);
-        await this.removeDead(jobName, data);
-
-        debug('scheduling %s for %s ( %s )', jobName, time, time.getTime());
-
-        const insertOp = await this.col.insertOne(
-            {
-                name: jobName,
-                data,
-                ...ivProps,
-                status: TASK_STATUS_SCHEDULED,
-                nextRunAt: time,
-            },
-            { returnDocument: 'after' },
+        debug(
+            'scheduling %s for %s ( %s ). Interval: (%s), IntervalStr: (%s)',
+            name,
+            time,
+            time.getTime(),
+            interval,
+            intervalStr,
         );
 
-        return this.col.findOne({ _id: insertOp.insertedId });
+        return new this.Job({
+            name: name,
+            data,
+            intervalStr,
+            interval,
+            status: TASK_STATUS_SCHEDULED,
+            nextRunAt: time,
+        }).save();
     }
 
-    async schedule(time, jobName, data = {}) {
+    async schedule(time: timestamp, jobName: string, data: any): Promise<IJob>;
+    async schedule(time: string, jobName: string, data: any): Promise<IJob>;
+    async schedule(time: Date, jobName: string, data: any): Promise<IJob>;
+
+    async schedule(time: any, jobName: string, data: any = {}) {
         let nextRun;
 
         if (isString(time)) {
@@ -166,36 +211,36 @@ class Neoplan extends EventEmitter {
         return this.createJobRecord(nextRun, jobName, data);
     }
 
-    now(jobName, data) {
+    async now(jobName: string, data: any = {}): Promise<IJob> {
         return this.createJobRecord(new Date(), jobName, data);
     }
 
-    every(time, jobName, data = {}, opts = { runNow: false }) {
+    async every(time: string, jobName: string, data = {}, opts = { runNow: false }): Promise<IJob> {
         const parsedInterval = humanInterval(time);
         const nextRun = opts.runNow ? new Date() : new Date(Date.now() + parsedInterval);
 
         return this.createJobRecord(nextRun, jobName, data, time, parsedInterval);
     }
 
-    async remove(jobName, dataMatcher = {}) {
-        return this.col.deleteMany({
+    async remove(jobName: string, dataMatcher: any = {}): Promise<any> {
+        return this.Job.deleteMany({
             name: jobName,
             data: dataMatcher,
         });
     }
 
-    async removeDoneOrScheduled(jobName, dataMatcher = {}) {
-        return this.col.deleteMany({
-            name: jobName,
+    async removeDoneOrScheduled(name: string, dataMatcher: any = {}): Promise<DeleteResult> {
+        return this.Job.deleteMany({
+            name,
             data: dataMatcher,
             status: { $in: [TASK_STATUS_DONE, TASK_STATUS_SCHEDULED] },
         });
     }
 
-    async removeDead(jobName, dataMatcher = {}) {
+    async removeDead(name: string, dataMatcher: any = {}): Promise<DeleteResult> {
         const lockDeadline = new Date(Date.now() - this.options.lockLifetime);
-        return this.col.deleteMany({
-            name: jobName,
+        return this.Job.deleteMany({
+            name,
             data: dataMatcher,
             status: { $in: [TASK_STATUS_PROCESSING] },
             lockedAt: { $lte: lockDeadline },
@@ -206,9 +251,9 @@ class Neoplan extends EventEmitter {
         const now = new Date();
         const lockDeadline = new Date(Date.now() - this.options.lockLifetime);
 
-        const availableProcessors = Object.getOwnPropertyNames(this.jobProcessors);
+        const availableProcessors = this.jobProcessors.map(({ name }) => name);
 
-        const { value: job } = await this.col.findOneAndUpdate(
+        return this.Job.findOneAndUpdate(
             {
                 nextRunAt: { $lte: this.options.nextScanAt },
 
@@ -218,7 +263,7 @@ class Neoplan extends EventEmitter {
                     { lockedAt: { $lte: lockDeadline } },
                 ],
 
-                status: { $in: [TASK_STATUS_SCHEDULED, TASK_STATUS_PROCESSING] },
+                status: { $in: [TASK_STATUS_SCHEDULED] },
 
                 name: { $in: availableProcessors },
             },
@@ -229,9 +274,10 @@ class Neoplan extends EventEmitter {
                     status: TASK_STATUS_PROCESSING,
                 },
             },
-            { returnDocument: 'after' },
+            {
+                new: true,
+            },
         );
-        return job;
     }
 
     async lockAndGetNextBatch() {
@@ -247,8 +293,8 @@ class Neoplan extends EventEmitter {
         return resolvedJobs.filter(Boolean);
     }
 
-    async _saveJobError(job, err) {
-        return this.col.findOneAndUpdate(
+    async _saveJobError(job: IJob, err: Error) {
+        return this.Job.findOneAndUpdate(
             { _id: job._id },
             {
                 $set: {
@@ -256,18 +302,23 @@ class Neoplan extends EventEmitter {
                     lastError: err.message,
                 },
             },
-            { returnDocument: 'after' },
+            { new: true },
         );
     }
 
     async _processJobs() {
         const batch = await this.lockAndGetNextBatch();
 
-        debug('lockAndGetNextBatch %s', batch.length);
+        debug(`LOCKED ${batch.length} JOBS TO PROCESS`);
+
+        batch.forEach((j) => {
+            debug(`J:${j._id}/${j.name}`);
+        });
 
         if (batch && batch.length) {
-            async.each(batch, (job, next) => {
-                if (!this.jobProcessors[job.name]) {
+            async.each(batch, (job: IJob, next) => {
+                const jobDefinition = this.getJobDefinition(job.name);
+                if (!jobDefinition) {
                     this._saveJobError(
                         job,
                         new Error(`Job with the name ${job.name} does not have a processor.`),
@@ -275,7 +326,7 @@ class Neoplan extends EventEmitter {
                     return next();
                 }
 
-                const jobDoneCallback = (err) => {
+                const jobDoneCallback = (err: Error) => {
                     debug(`jobDoneCallback: ${job.name}. err: ${err && err.message}`);
                     if (err) {
                         debug(`Job error [${job.name}]: ${err.message}`);
@@ -315,7 +366,7 @@ class Neoplan extends EventEmitter {
                             }
                         }
 
-                        this.col.updateOne(
+                        this.Job.updateOne(
                             {
                                 _id: job._id,
                             },
@@ -332,7 +383,7 @@ class Neoplan extends EventEmitter {
                             next,
                         );
                     } else if (!err) {
-                        this.col.updateOne(
+                        this.Job.updateOne(
                             {
                                 _id: job._id,
                             },
@@ -348,13 +399,12 @@ class Neoplan extends EventEmitter {
                     }
                 };
 
-                const defaultJobOptions = {
+                const namedJobOptions = jobDefinition.opts || {};
+
+                const jobOpts = {
                     timeout: 20000, // 20 sec
+                    ...namedJobOptions,
                 };
-
-                const namedJobOptions = this.jobProcessors[job.name].opts || {};
-
-                const jobOpts = { ...defaultJobOptions, ...namedJobOptions };
 
                 const jobTimeout = jobOpts.timeout;
                 let jobDoneCalled = false;
@@ -368,7 +418,7 @@ class Neoplan extends EventEmitter {
 
                 debug(`🤖 Running job processor ${job.name}`);
 
-                const jobDoneTimeoutHandler = (err) => {
+                const jobDoneTimeoutHandler = (err: any) => {
                     const jobTimeLapsed = Date.now() - jobStarted;
                     if (jt) {
                         clearTimeout(jt);
@@ -382,11 +432,12 @@ class Neoplan extends EventEmitter {
                         );
                         return;
                     }
+                    jobDoneCalled = true;
                     jobDoneCallback(err);
                 };
 
-                const jp = this.jobProcessors[job.name](job.data, jobDoneTimeoutHandler);
-                if (jp && jp.then) {
+                const jp = jobDefinition.processor(job.data, jobDoneTimeoutHandler);
+                if (jp && jp instanceof Promise) {
                     jp.then(jobDoneTimeoutHandler).catch(jobDoneTimeoutHandler);
                 }
             });
@@ -395,7 +446,7 @@ class Neoplan extends EventEmitter {
 
     close() {
         this._stop = true;
-        this._conn.close();
+        mongoose.connection.close();
     }
 }
 

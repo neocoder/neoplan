@@ -2,7 +2,7 @@
 const { expect } = require('chai');
 const debug = require('debug')('neoplan');
 
-const { Neoplan: Jobs } = require('..');
+const { Neoplan: Jobs } = require('../dist/neoplan');
 
 /**
  * scanInterval is defined in this test to make them run faster.
