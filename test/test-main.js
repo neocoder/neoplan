@@ -1,7 +1,7 @@
 const { expect } = require('chai');
-const debug = require('debug')('neoplan');
+const debug = require('debug')('neoplantest');
 
-const { Neoplan: Jobs } = require('..');
+const { Neoplan: Jobs } = require('../dist/neoplan');
 
 /*
 var iit = it;
@@ -62,12 +62,21 @@ describe('Testing jobs', function testingJobs() {
     });
 
     it('should add a single scheduled job', (testDone) => {
+        const testId = Date.now();
         J.defineJob('test1', (data, done) => {
             done();
-            testDone();
+            if (testId === data.testId) {
+                testDone();
+            }
         });
 
-        J.schedule('in 1 seconds', 'test1', { hello: 'world' });
+        J.schedule('in 1 seconds', 'test1', { hello: 'world', testId })
+            .then(() => {
+                debug('task scheduled');
+            })
+            .catch((err) => {
+                debug(`task scheduling error: ${err.message}`);
+            });
 
         return true;
     });
