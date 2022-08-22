@@ -1,4 +1,5 @@
 export type Options = {
+    modelName?: string; // name of the Mongoose model. Must be uniqure per jobs instance
     workerId?: number;
     url?: string;
     collection?: string;
