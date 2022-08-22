@@ -43,6 +43,7 @@ class Neoplan extends EventEmitter {
             workerId: 0,
             url: 'mongodb://localhost:27017/neoplan',
             collection: 'jobs',
+            modelName: 'Job',
             lockLifetime: 10 * 60 * 1000, // 10 minute default lockLifetime
             concurrency: 10, // Process n jobs at a time ( lock & get )
             scanInterval: 2000, // 2 sec
@@ -51,11 +52,13 @@ class Neoplan extends EventEmitter {
             ...opts,
         };
 
-        if (MODEL_CACHE.has(this.options.collection)) {
-            this.Job = MODEL_CACHE.get(this.options.collection);
+        const modelCacheKey = `${this.options.collection}-${this.options.modelName}`;
+
+        if (MODEL_CACHE.has(modelCacheKey)) {
+            this.Job = MODEL_CACHE.get(modelCacheKey);
         } else {
-            this.Job = model<IJob>('Job', getSchema(this.options.collection));
-            MODEL_CACHE.set(this.options.collection, this.Job);
+            this.Job = model<IJob>(this.options.modelName, getSchema(this.options.collection));
+            MODEL_CACHE.set(modelCacheKey, this.Job);
         }
 
         this.dbName = new URL(this.options.url).pathname.replace(/^\//g, '');

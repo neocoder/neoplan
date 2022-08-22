@@ -1,5 +1,6 @@
 const { expect } = require('chai');
 const debug = require('debug')('neoplantest');
+const mongoose = require('mongoose');
 
 const { Neoplan: Jobs } = require('../dist/neoplan');
 
@@ -12,10 +13,10 @@ it = function(){};
  * scanInterval is defined in this test to make them run faster.
  * Usually you should not change this value
  */
-
+const JOBS_COLLECTION_NAME = 'jobs-test';
 const mongoPath = process.env.MONGOPATH || 'mongodb://localhost:27017/neoplan';
 const opts = { url: mongoPath };
-const J = new Jobs({ collection: 'jobs-test', ...opts });
+const J = new Jobs({ collection: JOBS_COLLECTION_NAME, ...opts });
 
 J.on('error', (err) => {
     debug(`[JOBS ERROR] ${err}`);
@@ -51,6 +52,27 @@ describe('Testing jobs', function testingJobs() {
     //*
 
     it('should create jobs object', (done) => {
+        expect(J).to.be.an.instanceOf(Jobs);
+        done();
+    });
+
+    it('should create second jobs object with different params', (done) => {
+        const schema = new mongoose.Schema(
+            {
+                name: { type: String, index: true },
+                data: mongoose.Schema.Types.Mixed,
+                intervalStr: String,
+                interval: Number,
+                status: { type: String, index: true },
+                nextRunAt: Date,
+                errCounter: Number,
+                lastError: String,
+            },
+            { collection: JOBS_COLLECTION_NAME },
+        );
+
+        mongoose.model('Job2', schema);
+
         expect(J).to.be.an.instanceOf(Jobs);
         done();
     });
