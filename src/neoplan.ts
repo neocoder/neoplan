@@ -175,22 +175,32 @@ class Neoplan extends EventEmitter {
         await this.removeDead(name, data);
 
         debug(
-            'scheduling %s for %s ( %s ). Interval: (%s), IntervalStr: (%s)',
-            name,
-            time,
-            time.getTime(),
-            interval,
-            intervalStr,
+            `scheduling ${name}:${JSON.stringify(
+                data,
+            )} for ${time}(${time.getTime()}). Interval: (${interval}), IntervalStr: (${intervalStr})`,
         );
 
-        return new this.Job({
-            name: name,
-            data,
-            intervalStr,
-            interval,
-            status: TASK_STATUS_SCHEDULED,
-            nextRunAt: time,
-        }).save();
+        return this.Job.findOneAndUpdate(
+            {
+                name,
+                data,
+                status: TASK_STATUS_PROCESSING,
+            },
+            {
+                $setOnInsert: {
+                    name,
+                    data,
+                    intervalStr,
+                    interval,
+                    status: TASK_STATUS_SCHEDULED,
+                    nextRunAt: time,
+                },
+            },
+            {
+                new: true,
+                upsert: true,
+            },
+        );
     }
 
     async schedule(time: timestamp, jobName: string, data: any): Promise<IJob>;

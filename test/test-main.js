@@ -327,7 +327,7 @@ describe('Testing jobs', function testingJobs() {
         return true;
     });
 
-    it('should run job and re-run done job with the same data ', function (testDone) {
+    it('should run job and re-run done job with the same data', function (testDone) {
         this.timeout(15000);
 
         const accId = 'abc123';
@@ -350,5 +350,23 @@ describe('Testing jobs', function testingJobs() {
         });
 
         J.now('test5', { accId });
+    });
+
+    it('should not schedule the job that that is running', function (testDone) {
+        this.timeout(45000);
+
+        J.defineJob('test10', (data, done) => {
+            setTimeout(() => {
+                done();
+                testDone();
+            }, 500);
+        });
+
+        J.now('test10');
+        setTimeout(() => {
+            J.now('test10');
+        }, 100);
+
+        return true;
     });
 });
