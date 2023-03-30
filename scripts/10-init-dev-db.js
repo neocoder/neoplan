@@ -1,13 +1,5 @@
-conn = new Mongo();
+/* global Mongo */
+const conn = new Mongo();
 
-sessDb = conn.getDB('testdb');
-sessDb.auth('nptest', 'nptest');
-sessDb.createUser({
-    user: 'nptest',
-    pwd: 'nptest',
-    roles: [{ role: 'readWrite', db: 'testdb' }],
-});
-
-db = conn.getDB('testdb');
-db.auth('nptest', 'nptest');
+const db = conn.getDB('testdb');
 db.createUser({ user: 'nptest', pwd: 'nptest', roles: [{ role: 'readWrite', db: 'testdb' }] });
