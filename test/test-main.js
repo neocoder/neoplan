@@ -352,21 +352,16 @@ describe('Testing jobs', function testingJobs() {
         J.now('test5', { accId });
     });
 
-    it('should not schedule the job that that is running', function (testDone) {
+    it('should be able to re-schedule running job from itself', function (testDone) {
         this.timeout(45000);
 
-        J.defineJob('test10', (data, done) => {
-            setTimeout(() => {
-                done();
-                testDone();
-            }, 500);
+        J.defineJob('test10', async () => {
+            await J.now('test10');
+            const jobs = await J.findActiveJobs('test10');
+            expect(jobs).to.be.an('array').that.have.lengthOf(1);
+            testDone();
         });
 
         J.now('test10');
-        setTimeout(() => {
-            J.now('test10');
-        }, 100);
-
-        return true;
     });
 });

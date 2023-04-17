@@ -167,6 +167,7 @@ class Neoplan extends EventEmitter {
         intervalStr: string = null,
         interval: number = null,
     ) {
+        debug(`[createJobRecord()] data: ${JSON.stringify(data)}`);
         if (!isDate(time)) {
             throw new Error('Wrong time parameter type. Must be Date');
         }
@@ -180,27 +181,31 @@ class Neoplan extends EventEmitter {
             )} for ${time}(${time.getTime()}). Interval: (${interval}), IntervalStr: (${intervalStr})`,
         );
 
-        return this.Job.findOneAndUpdate(
-            {
-                name,
-                data,
-                status: TASK_STATUS_PROCESSING,
-            },
-            {
-                $setOnInsert: {
-                    name,
-                    data,
-                    intervalStr,
-                    interval,
-                    status: TASK_STATUS_SCHEDULED,
-                    nextRunAt: time,
-                },
-            },
-            {
-                new: true,
-                upsert: true,
-            },
-        );
+        return new this.Job({
+            name,
+            data,
+            intervalStr,
+            interval,
+            status: TASK_STATUS_SCHEDULED,
+            nextRunAt: time,
+        }).save();
+    }
+
+    /**
+     * Find jobs that are in processing or scheduled state
+     * @param {String} name job name
+     * @param {Object} data job data
+     */
+    async findActiveJobs(name: string, data: any = {}) {
+        if (!name) {
+            throw new Error('Pease provide job name');
+        }
+        debug(`Data: ${JSON.stringify(data)}`);
+        return this.Job.find({
+            name,
+            data,
+            status: { $in: [TASK_STATUS_SCHEDULED, TASK_STATUS_PROCESSING] },
+        });
     }
 
     async schedule(time: timestamp, jobName: string, data: any): Promise<IJob>;
@@ -225,6 +230,7 @@ class Neoplan extends EventEmitter {
     }
 
     async now(jobName: string, data: any = {}): Promise<IJob> {
+        debug(`[now()] data: ${JSON.stringify(data)}`);
         return this.createJobRecord(new Date(), jobName, data);
     }
 

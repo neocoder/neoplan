@@ -16,7 +16,7 @@ function getSchema(collection: string): mongoose.Schema<IJob> {
     const schema = new mongoose.Schema<IJob>(
         {
             name: { type: String, index: true },
-            data: mongoose.Schema.Types.Mixed,
+            data: { type: Object, default: {} },
             intervalStr: String,
             interval: Number,
             status: { type: String, index: true },
@@ -24,7 +24,7 @@ function getSchema(collection: string): mongoose.Schema<IJob> {
             errCounter: Number,
             lastError: String,
         },
-        { collection },
+        { collection, minimize: false },
     );
     return schema;
 }
