@@ -208,6 +208,22 @@ class Neoplan extends EventEmitter {
         });
     }
 
+    /**
+     * Find jobs that are in processing or scheduled state
+     * @param {String} name job name
+     * @param {Object} data job data
+     */
+    async findErrorJobs(name: string, data: any = {}) {
+        if (!name) {
+            throw new Error('Pease provide job name');
+        }
+        return this.Job.find({
+            name,
+            data,
+            status: TASK_STATUS_ERROR,
+        });
+    }
+
     async schedule(time: timestamp, jobName: string, data: any): Promise<IJob>;
     async schedule(time: string, jobName: string, data: any): Promise<IJob>;
     async schedule(time: Date, jobName: string, data: any): Promise<IJob>;
@@ -455,7 +471,13 @@ class Neoplan extends EventEmitter {
                     jobDoneCallback(err);
                 };
 
-                const jp = jobDefinition.processor(job.data, jobDoneTimeoutHandler);
+                let jp;
+                try {
+                    jp = jobDefinition.processor(job.data, jobDoneTimeoutHandler);
+                } catch (err: any) {
+                    jobDoneTimeoutHandler(err);
+                }
+
                 if (jp && jp instanceof Promise) {
                     jp.then(jobDoneTimeoutHandler).catch(jobDoneTimeoutHandler);
                 }

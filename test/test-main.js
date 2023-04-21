@@ -364,4 +364,21 @@ describe('Testing jobs', function testingJobs() {
 
         J.now('test10');
     });
+
+    it('should handle unexpected errors in classic handlers', function (testDone) {
+        this.timeout(5000);
+
+        const TEST_NAME = 'test13';
+
+        J.defineJob(TEST_NAME, (data) => {
+            data();
+        });
+
+        J.now(TEST_NAME);
+
+        J.on('error', (err) => {
+            expect(err.message).to.contain('data is not a function');
+            testDone();
+        });
+    });
 });
