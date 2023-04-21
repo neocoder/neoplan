@@ -479,7 +479,9 @@ class Neoplan extends EventEmitter {
                 }
 
                 if (jp && jp instanceof Promise) {
-                    jp.then(jobDoneTimeoutHandler).catch(jobDoneTimeoutHandler);
+                    jp.then(() => {
+                        jobDoneTimeoutHandler(null);
+                    }).catch(jobDoneTimeoutHandler);
                 }
             });
         }
