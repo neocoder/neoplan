@@ -10,6 +10,7 @@ export interface IJob {
     nextRunAt: Date;
     errCounter: number;
     lastError: string;
+    lockedAt?: Date;
 }
 
 function getSchema(collection: string): mongoose.Schema<IJob> {
@@ -23,9 +24,14 @@ function getSchema(collection: string): mongoose.Schema<IJob> {
             nextRunAt: Date,
             errCounter: Number,
             lastError: String,
+            lockedAt: Date,
         },
         { collection, minimize: false },
     );
+
+    schema.index({ name: 1, data: 1, status: 1 });
+    schema.index({ name: 1, status: 1, lockedAt: 1 });
+
     return schema;
 }
 
