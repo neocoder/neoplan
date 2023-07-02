@@ -27,7 +27,7 @@ const isDate = (d: any) => d instanceof Date && !Number.isNaN(d.valueOf());
 
 const MODEL_CACHE = new Map<string, Model<IJob>>();
 
-class Neoplan extends EventEmitter {
+export class Neoplan extends EventEmitter {
     options: Options;
     _scanTimeout: NodeJS.Timeout;
     _stop: boolean;
@@ -136,7 +136,7 @@ class Neoplan extends EventEmitter {
         }
     }
 
-    defineJob(name: string, processor: Processor, opts: any = {}) {
+    public defineJob(name: string, processor: Processor, opts: any = {}) {
         const exists = this.jobProcessors.find((j) => j.name === name);
         if (exists) {
             throw new Error(`Job processor with the name ${name} already exists.`);
@@ -492,5 +492,3 @@ class Neoplan extends EventEmitter {
         mongoose.connection.close();
     }
 }
-
-module.exports = { Neoplan };
