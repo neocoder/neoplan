@@ -366,7 +366,7 @@ export class Neoplan extends EventEmitter {
                     if (err) {
                         debug(`Job error [${job.name}]: ${err.message}`);
                         this._saveJobError(job, err);
-                        this.emit(EV_ERROR, new Error(`Job error [${job.name}]: ${err.message}`));
+                        this.emit(EV_ERROR, err);
                     }
 
                     // if recurring job
