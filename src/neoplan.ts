@@ -272,6 +272,14 @@ export class Neoplan extends EventEmitter {
         });
     }
 
+    async removeErrors(name: string, dataMatcher: any = {}): Promise<DeleteResult> {
+        return this.Job.deleteMany({
+            name,
+            data: dataMatcher,
+            status: TASK_STATUS_ERROR,
+        });
+    }
+
     async removeDead(name: string, dataMatcher: any = {}): Promise<DeleteResult> {
         const lockDeadline = new Date(Date.now() - this.options.lockLifetime);
         return this.Job.deleteMany({

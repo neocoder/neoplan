@@ -358,7 +358,7 @@ describe('Testing jobs', function testingJobs() {
         J.defineJob('test10', async () => {
             await J.now('test10');
             const jobs = await J.findActiveJobs('test10');
-            expect(jobs).to.be.an('array').that.have.lengthOf(1);
+            expect(jobs).to.be.an('array').that.have.lengthOf(2);
             testDone();
         });
 
@@ -378,6 +378,25 @@ describe('Testing jobs', function testingJobs() {
 
         J.on('error', (err) => {
             expect(err.message).to.contain('data is not a function');
+            testDone();
+        });
+    });
+
+    it('should delete errored jobs', function (testDone) {
+        this.timeout(5000);
+
+        const TEST_NAME = 'test14';
+
+        J.defineJob(TEST_NAME, async () => {
+            throw new Error('test error');
+        });
+
+        J.now(TEST_NAME);
+
+        J.on('error', async (_err) => {
+            await J.removeErrors(TEST_NAME);
+            const errs = await J.findErrorJobs(TEST_NAME);
+            expect(errs).to.be.an('array').that.have.lengthOf(0);
             testDone();
         });
     });
